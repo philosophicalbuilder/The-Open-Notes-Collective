@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { query, queryOne } from './lib/db';
+import { query } from '../lib/db';
 
 // Validate environment variables
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -33,10 +33,11 @@ export const authConfig = {
           }
 
           // Check if user exists in database
-          const existingUser = await queryOne<{ user_id: number }>(
+          const results: any = await query(
             'SELECT user_id FROM users WHERE email = ?',
             [user.email]
           );
+          const existingUser = results.length > 0 ? results[0] : null;
 
           if (!existingUser) {
             // Extract name
@@ -46,16 +47,10 @@ export const authConfig = {
 
             // Insert new user (role will be set during first login flow via callback)
             // Use a placeholder password hash for OAuth users
-            const result = await query<{ insertId: number }>(
+            await query(
               `INSERT INTO users (computing_id, email, password_hash, first_name, last_name, role, student_type)
                VALUES (?, ?, ?, ?, ?, 'student', NULL)`,
               [computingId, user.email, 'oauth_user_no_password', firstName, lastName]
-            );
-
-            // Log activity
-            await query(
-              'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-              [result.insertId, 'register', 'user', result.insertId, 'User registered via Google OAuth']
             );
           }
 
@@ -70,15 +65,11 @@ export const authConfig = {
     async jwt({ token, user, account, profile }) {
       if (account?.provider === 'google' && user?.email) {
         // Fetch user from database
-        const dbUser = await queryOne<{
-          user_id: number;
-          computing_id: string;
-          role: 'student' | 'instructor';
-          student_type: 'sdac' | 'non-sdac' | null;
-        }>(
+        const results: any = await query(
           'SELECT user_id, computing_id, role, student_type FROM users WHERE email = ?',
           [user.email]
         );
+        const dbUser = results.length > 0 ? results[0] : null;
 
         if (dbUser) {
           token.userId = dbUser.user_id;
