@@ -2,22 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
-// GET /api/export/notes - Export notes as JSON or CSV
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = req.nextUrl.searchParams;
     const courseId = searchParams.get('course_id');
-    const format = searchParams.get('format') || 'json'; // json or csv
+    const format = searchParams.get('format') || 'json';
 
     let sql = `
       SELECT 

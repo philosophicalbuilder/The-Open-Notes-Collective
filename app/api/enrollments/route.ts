@@ -2,21 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
-// POST /api/enrollments - Enroll in a course
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
     if (!decoded || decoded.role !== 'student') {
       return NextResponse.json({ error: 'Forbidden - Student access required' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { course_id } = body;
+    const { course_id } = await req.json();
 
     if (!course_id) {
       return NextResponse.json(
@@ -67,21 +63,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/enrollments - Get user's enrollments
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const searchParams = request.nextUrl.searchParams;
-    const userId = searchParams.get('user_id') || decoded.userId.toString();
+    const userId = req.nextUrl.searchParams.get('user_id') || decoded.userId.toString();
 
     // Only allow users to see their own enrollments (unless admin)
     if (userId !== decoded.userId.toString() && decoded.role !== 'instructor') {
@@ -111,21 +101,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE /api/enrollments - Unenroll from a course
-export async function DELETE(request: NextRequest) {
+export async function DELETE(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const searchParams = request.nextUrl.searchParams;
-    const courseId = searchParams.get('course_id');
+    const courseId = req.nextUrl.searchParams.get('course_id');
 
     if (!courseId) {
       return NextResponse.json(

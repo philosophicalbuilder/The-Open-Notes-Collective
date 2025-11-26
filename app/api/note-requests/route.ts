@@ -2,21 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
-// GET /api/note-requests - Get note requests for a course
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const searchParams = request.nextUrl.searchParams;
-    const courseId = searchParams.get('course_id');
+    const courseId = req.nextUrl.searchParams.get('course_id');
 
     if (!courseId) {
       return NextResponse.json(
@@ -61,21 +55,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/note-requests - Create a new note request
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
     if (!decoded || decoded.role !== 'student') {
       return NextResponse.json({ error: 'Forbidden - Student access required' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { course_id, request_text } = body;
+    const { course_id, request_text } = await req.json();
 
     if (!course_id || !request_text?.trim()) {
       return NextResponse.json(
@@ -114,23 +104,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/note-requests/[id] - Update note request status
-export async function PUT(request: NextRequest) {
+export async function PUT(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const searchParams = request.nextUrl.searchParams;
-    const requestId = searchParams.get('id');
-    const body = await request.json();
-    const { status } = body;
+    const requestId = req.nextUrl.searchParams.get('id');
+    const { status } = await req.json();
 
     if (!requestId || !status) {
       return NextResponse.json(

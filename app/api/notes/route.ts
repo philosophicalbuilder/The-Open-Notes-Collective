@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
-// GET /api/notes - List notes with search/filter
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const courseId = searchParams.get('course_id');
-    const search = searchParams.get('search') || '';
-    const sortBy = searchParams.get('sort') || 'created_at'; // created_at, rating, title
-    const sortOrder = searchParams.get('order') || 'DESC'; // ASC, DESC
+    const params = req.nextUrl.searchParams;
+    const courseId = params.get('course_id');
+    const search = params.get('search') || '';
+    const sortBy = params.get('sort') || 'created_at';
+    const sortOrder = params.get('order') || 'DESC';
 
     let sql = `
       SELECT 
@@ -45,18 +44,15 @@ export async function GET(request: NextRequest) {
 
     sql += ` GROUP BY n.note_id`;
 
-    // Validate sort column
-    const validSortColumns = ['created_at', 'rating', 'title', 'average_rating'];
-    const validSortOrder = ['ASC', 'DESC'];
-    const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
-    const finalSortOrder = validSortOrder.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+    const validSort = ['created_at', 'rating', 'title', 'average_rating'].includes(sortBy) ? sortBy : 'created_at';
+    const validOrder = ['ASC', 'DESC'].includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
-    if (finalSortBy === 'rating' || finalSortBy === 'average_rating') {
-      sql += ` ORDER BY average_rating ${finalSortOrder}, rating_count DESC`;
-    } else if (finalSortBy === 'title') {
-      sql += ` ORDER BY n.title ${finalSortOrder}`;
+    if (validSort === 'rating' || validSort === 'average_rating') {
+      sql += ` ORDER BY average_rating ${validOrder}, rating_count DESC`;
+    } else if (validSort === 'title') {
+      sql += ` ORDER BY n.title ${validOrder}`;
     } else {
-      sql += ` ORDER BY n.created_at ${finalSortOrder}`;
+      sql += ` ORDER BY n.created_at ${validOrder}`;
     }
 
     const notes = await query(sql, params);
@@ -68,21 +64,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/notes - Submit a new note
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
     if (!decoded || decoded.role !== 'student') {
       return NextResponse.json({ error: 'Forbidden - Student access required' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { title, description, lecture, link, course_id, file_url } = body;
+    const { title, description, lecture, link, course_id, file_url } = await req.json();
 
     // Either link or file_url must be provided
     const finalLink = file_url || link;

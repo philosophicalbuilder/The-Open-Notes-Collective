@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, getUserByComputingId } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const { computing_id, email, password, first_name, middle_name, last_name, role, student_type, phone } = body;
+    const { computing_id, email, password, first_name, middle_name, last_name, role, student_type, phone } = await req.json();
 
-    // Validation
     if (!computing_id || !email || !password || !first_name || !last_name || !role) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (role !== 'student' && role !== 'instructor') {
-      return NextResponse.json(
-        { error: 'Invalid role' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Check if user already exists
     const existingUser = await getUserByComputingId(computing_id);
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'User already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'User already exists' }, { status: 409 });
     }
 
-    // Create user
     const userId = await createUser({
       computing_id,
       email,
@@ -43,10 +30,7 @@ export async function POST(request: NextRequest) {
       phone,
     });
 
-    return NextResponse.json(
-      { message: 'User created successfully', user_id: userId },
-      { status: 201 }
-    );
+    return NextResponse.json({ message: 'User created successfully', user_id: userId }, { status: 201 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });

@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
-// GET /api/courses - List all courses (with optional search/filter)
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
     try {
-        const token = request.cookies.get('auth-token')?.value;
+        const token = req.cookies.get('auth-token')?.value;
         const decoded = token ? verifyToken(token) : null;
-
-        const searchParams = request.nextUrl.searchParams;
-        const search = searchParams.get('search') || '';
-        const semesterId = searchParams.get('semester_id');
-        const instructorId = searchParams.get('instructor_id');
+        const params = req.nextUrl.searchParams;
+        const search = params.get('search') || '';
+        const semesterId = params.get('semester_id');
+        const instructorId = params.get('instructor_id');
 
         let sql = `
       SELECT 
@@ -65,21 +63,17 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /api/courses - Create a new course (instructor only)
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
     try {
-        const token = request.cookies.get('auth-token')?.value;
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const token = req.cookies.get('auth-token')?.value;
+        if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const decoded = verifyToken(token);
         if (!decoded || decoded.role !== 'instructor') {
             return NextResponse.json({ error: 'Forbidden - Instructor access required' }, { status: 403 });
         }
 
-        const body = await request.json();
-        const { name, code, section_id, description, semester_id } = body;
+        const { name, code, section_id, description, semester_id } = await req.json();
 
         if (!name || !code || !section_id || !description) {
             return NextResponse.json(
