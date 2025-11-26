@@ -85,11 +85,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, lecture, link, course_id } = body;
+    const { title, description, lecture, link, course_id, file_url } = body;
 
-    if (!title || !description || !link || !course_id) {
+    // Either link or file_url must be provided
+    const finalLink = file_url || link;
+
+    if (!title || !description || !finalLink || !course_id) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: title, description, link/file, and course_id are required' },
         { status: 400 }
       );
     }
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
     const result = await query<{ insertId: number }>(
       `INSERT INTO notes (title, description, lecture, link, course_id, author_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, description, lecture || null, link, course_id, decoded.userId]
+      [title, description, lecture || null, finalLink, course_id, decoded.userId]
     );
 
     // Log activity

@@ -134,6 +134,9 @@ export default function DashboardPage() {
   const [noteDescription, setNoteDescription] = useState("")
   const [noteLecture, setNoteLecture] = useState("")
   const [noteLink, setNoteLink] = useState("")
+  const [noteFile, setNoteFile] = useState<File | null>(null)
+  const [uploadMethod, setUploadMethod] = useState<"link" | "file">("link")
+  const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const studentProfile = {
@@ -162,6 +165,17 @@ export default function DashboardPage() {
       loadNoteRequests(selectedCourse.id)
     }
   }, [selectedCourse])
+
+  // Debounced search - reload notes when search query changes
+  useEffect(() => {
+    if (selectedCourse) {
+      const timeoutId = setTimeout(() => {
+        loadNotes(selectedCourse.id, notesSearchQuery)
+      }, 300) // 300ms debounce
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [notesSearchQuery, selectedCourse])
 
   const loadEnrolledCourses = async () => {
     try {
@@ -197,9 +211,14 @@ export default function DashboardPage() {
     }
   }
 
-  const loadNotes = async (courseId: number) => {
+  const loadNotes = async (courseId: number, searchQuery?: string) => {
     try {
-      const response = await fetch(`/api/notes?course_id=${courseId}`)
+      let url = `/api/notes?course_id=${courseId}`
+      if (searchQuery && searchQuery.trim()) {
+        url += `&search=${encodeURIComponent(searchQuery.trim())}`
+      }
+      
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         const formattedNotes = (data.notes || []).map((note: any) => ({
@@ -327,38 +346,82 @@ export default function DashboardPage() {
   }
 
   const handleSubmitNote = async () => {
-    if (noteTitle.trim() && noteDescription.trim() && noteLecture && noteLink.trim() && selectedCourse) {
-      try {
-        const response = await fetch('/api/notes', {
+    if (!noteTitle.trim() || !noteDescription.trim() || !noteLecture || !selectedCourse) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    // Validate that either link or file is provided
+    if (uploadMethod === "link" && !noteLink.trim()) {
+      alert('Please provide a link or upload a file')
+      return
+    }
+
+    if (uploadMethod === "file" && !noteFile) {
+      alert('Please select a file to upload')
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      let finalLink = noteLink.trim()
+
+      // If uploading a file, upload it first
+      if (uploadMethod === "file" && noteFile) {
+        const formData = new FormData()
+        formData.append('file', noteFile)
+
+        const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: noteTitle.trim(),
-            description: noteDescription.trim(),
-            lecture: noteLecture,
-            link: noteLink.trim(),
-            course_id: selectedCourse.id,
-          }),
+          body: formData,
         })
 
-        if (response.ok) {
-          // Reload notes for this course
-          await loadNotes(selectedCourse.id)
-
-          // Reset form
-          setNoteTitle("")
-          setNoteDescription("")
-          setNoteLecture("")
-          setNoteLink("")
-          setIsSubmitNotesOpen(false)
-        } else {
-          const error = await response.json()
-          alert(error.error || 'Failed to submit note')
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json()
+          alert(error.error || 'Failed to upload file')
+          setIsUploading(false)
+          return
         }
-      } catch (error) {
-        console.error('Error submitting note:', error)
-        alert('Failed to submit note')
+
+        const uploadData = await uploadResponse.json()
+        finalLink = uploadData.url
       }
+
+      // Submit the note
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: noteTitle.trim(),
+          description: noteDescription.trim(),
+          lecture: noteLecture,
+          link: uploadMethod === "link" ? finalLink : undefined,
+          file_url: uploadMethod === "file" ? finalLink : undefined,
+          course_id: selectedCourse.id,
+        }),
+      })
+
+      if (response.ok) {
+        // Reload notes for this course
+        await loadNotes(selectedCourse.id)
+
+        // Reset form
+        setNoteTitle("")
+        setNoteDescription("")
+        setNoteLecture("")
+        setNoteLink("")
+        setNoteFile(null)
+        setUploadMethod("link")
+        setIsSubmitNotesOpen(false)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to submit note')
+      }
+    } catch (error) {
+      console.error('Error submitting note:', error)
+      alert('Failed to submit note')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -379,12 +442,17 @@ export default function DashboardPage() {
   const currentMessages = selectedCourse ? messages[selectedCourse.id] || [] : []
   const currentSubmissions = selectedCourse ? noteSubmissions[selectedCourse.id] || [] : []
 
+  // Notes are already filtered by the API, so we can use them directly
+  // But we'll keep client-side filtering as a fallback for author search
   const filteredSubmissions = currentSubmissions.filter((submission) => {
+    if (!notesSearchQuery.trim()) return true
     const query = notesSearchQuery.toLowerCase()
+    // API handles title and description, but we can also filter by author client-side
     return (
       submission.title.toLowerCase().includes(query) ||
       submission.author.toLowerCase().includes(query) ||
-      submission.description.toLowerCase().includes(query)
+      submission.description.toLowerCase().includes(query) ||
+      submission.lecture?.toLowerCase().includes(query)
     )
   })
 
@@ -515,20 +583,11 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">Current Semester</p>
           </div>
 
-          {selectedCourse && currentSubmissions.length > 0 ? (
+          {selectedCourse ? (
             <div className="space-y-6">
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground">Notes for {selectedCourse.name}</h2>
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search notes..."
-                      value={notesSearchQuery}
-                      onChange={(e) => setNotesSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">Notes for {selectedCourse.name}</h2>
                   <Dialog open={isSubmitNotesOpen} onOpenChange={setIsSubmitNotesOpen}>
                     <DialogTrigger asChild>
                       <Button className="gap-2">
@@ -580,25 +639,91 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="note-link">Link</Label>
-                          <Input
-                            id="note-link"
-                            type="url"
-                            placeholder="https://drive.google.com/file/..."
-                            value={noteLink}
-                            onChange={(e) => setNoteLink(e.target.value)}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Paste a link to your notes (Google Drive, Dropbox, OneDrive, etc.)
-                          </p>
+                          <Label>Upload Method</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={uploadMethod === "link" ? "default" : "outline"}
+                              onClick={() => {
+                                setUploadMethod("link")
+                                setNoteFile(null)
+                              }}
+                              className="flex-1"
+                            >
+                              Link
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={uploadMethod === "file" ? "default" : "outline"}
+                              onClick={() => {
+                                setUploadMethod("file")
+                                setNoteLink("")
+                              }}
+                              className="flex-1"
+                            >
+                              Upload File
+                            </Button>
+                          </div>
                         </div>
+
+                        {uploadMethod === "link" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="note-link">Link</Label>
+                            <Input
+                              id="note-link"
+                              type="url"
+                              placeholder="https://drive.google.com/file/..."
+                              value={noteLink}
+                              onChange={(e) => setNoteLink(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Paste a link to your notes (Google Drive, Dropbox, OneDrive, etc.)
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="note-file">File</Label>
+                            <Input
+                              id="note-file"
+                              type="file"
+                              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  if (file.size > 50 * 1024 * 1024) {
+                                    alert('File size must be less than 50MB')
+                                    e.target.value = ''
+                                    return
+                                  }
+                                  setNoteFile(file)
+                                }
+                              }}
+                              className="cursor-pointer"
+                            />
+                            {noteFile && (
+                              <div className="text-sm text-muted-foreground p-2 bg-neutral-50 rounded border">
+                                Selected: {noteFile.name} ({(noteFile.size / 1024 / 1024).toFixed(2)} MB)
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Upload PDF, Word, PowerPoint, Text, or Image files (max 50MB)
+                            </p>
+                          </div>
+                        )}
 
                         <Button
                           onClick={handleSubmitNote}
-                          disabled={!noteTitle.trim() || !noteDescription.trim() || !noteLecture || !noteLink.trim()}
+                          disabled={
+                            isUploading ||
+                            !noteTitle.trim() ||
+                            !noteDescription.trim() ||
+                            !noteLecture ||
+                            (uploadMethod === "link" && !noteLink.trim()) ||
+                            (uploadMethod === "file" && !noteFile)
+                          }
                           className="w-full"
                         >
-                          Submit Notes
+                          {isUploading ? "Uploading..." : "Submit Notes"}
                         </Button>
                       </div>
                     </DialogContent>
@@ -606,55 +731,75 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredSubmissions.length > 0 ? (
-                  filteredSubmissions.map((submission) => (
-                    <div
-                      key={submission.id}
-                      onClick={() => {
-                        setSelectedNote(submission)
-                        setIsNoteModalOpen(true)
-                      }}
-                      className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    >
-                      <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
-                      <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                        <span>{submission.author}</span>
-                        <span>•</span>
-                        <span>{submission.date}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-4 w-4 ${i < Math.floor(submission.rating)
-                                ? "fill-yellow-400 text-yellow-400"
-                                : i < submission.rating
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-neutral-300"
-                                }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
-                      </div>
+              {currentSubmissions.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search notes..."
+                        value={notesSearchQuery}
+                        onChange={(e) => setNotesSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-center py-8 text-muted-foreground">
-                    No notes found matching "{notesSearchQuery}"
                   </div>
-                )}
-              </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredSubmissions.length > 0 ? (
+                      filteredSubmissions.map((submission) => (
+                        <div
+                          key={submission.id}
+                          onClick={() => {
+                            setSelectedNote(submission)
+                            setIsNoteModalOpen(true)
+                          }}
+                          className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                          <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
+                          <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                            <span>{submission.author}</span>
+                            <span>•</span>
+                            <span>{submission.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${i < Math.floor(submission.rating)
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : i < submission.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-neutral-300"
+                                    }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 text-center py-8 text-muted-foreground">
+                        No notes found matching "{notesSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white border border-neutral-200 rounded-lg p-6">
+                  <p className="text-muted-foreground">
+                    No notes available yet for {selectedCourse.name}. Be the first to submit notes!
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-white border border-neutral-200 rounded-lg p-6">
               <p className="text-muted-foreground">
-                {selectedCourse
-                  ? `No notes available yet for ${selectedCourse.name}`
-                  : "Welcome to Open Notes Collective"}
+                Welcome to Open Notes Collective. Select a course to get started.
               </p>
             </div>
           )}
