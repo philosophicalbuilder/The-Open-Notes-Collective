@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN enrollments e ON c.course_id = e.course_id
       WHERE 1=1
     `;
-        const params: any[] = [];
+        const params = [];
 
         // If instructor is viewing, show only their courses
         if (decoded?.role === 'instructor' && !instructorId) {
@@ -59,12 +59,9 @@ export async function GET(request: NextRequest) {
         const courses = await query(sql, params);
 
         return NextResponse.json({ courses }, { status: 200 });
-    } catch (error: any) {
-        console.error('Error fetching courses:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
     }
 }
 
@@ -94,11 +91,11 @@ export async function POST(request: NextRequest) {
         // Get current semester if not provided
         let finalSemesterId = semester_id;
         if (!finalSemesterId) {
-            const currentSemester = await query(
+            const currentSemester: any = await query(
                 'SELECT semester_id FROM semesters WHERE is_current = TRUE LIMIT 1'
             );
             if (Array.isArray(currentSemester) && currentSemester.length > 0) {
-                finalSemesterId = (currentSemester[0] as any).semester_id;
+                finalSemesterId = currentSemester[0].semester_id;
             } else {
                 return NextResponse.json(
                     { error: 'No current semester found' },
@@ -108,28 +105,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Create course
-        const result = await query<{ insertId: number }>(
+        const result: any = await query(
             `INSERT INTO courses (name, code, section_id, description, instructor_id, semester_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
             [name, code, section_id, description, decoded.userId, finalSemesterId]
-        );
-
-        // Log activity
-        await query(
-            'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-            [decoded.userId, 'create', 'course', result.insertId, `Created course: ${name}`]
         );
 
         return NextResponse.json(
             { message: 'Course created successfully', course_id: result.insertId },
             { status: 201 }
         );
-    } catch (error: any) {
-        console.error('Error creating course:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
     }
 }
 

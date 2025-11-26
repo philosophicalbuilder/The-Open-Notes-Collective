@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, getUserByComputingId } from '@/lib/auth';
-import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,22 +43,13 @@ export async function POST(request: NextRequest) {
       phone,
     });
 
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-      [userId, 'register', 'user', userId, 'User registered']
-    );
-
     return NextResponse.json(
       { message: 'User created successfully', user_id: userId },
       { status: 201 }
     );
-  } catch (error: any) {
-    console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

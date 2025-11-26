@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ratings r ON n.note_id = r.note_id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params = [];
 
     if (courseId) {
       sql += ` AND n.course_id = ?`;
@@ -97,12 +97,9 @@ export async function GET(request: NextRequest) {
         }
       );
     }
-  } catch (error: any) {
-    console.error('Error exporting notes:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

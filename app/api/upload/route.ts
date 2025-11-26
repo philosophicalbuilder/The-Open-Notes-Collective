@@ -4,10 +4,10 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { verifyToken } from '@/lib/auth';
 
-// Maximum file size: 50MB
+// max file size 50mb
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-// Allowed file types
+// allowed file types
 const ALLOWED_TYPES = [
   'application/pdf',
   'application/msword',
@@ -40,20 +40,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Validate file size
+    // check file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'File size exceeds 50MB limit' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'File too big' }, { status: 400 });
     }
 
-    // Validate file type
+    // check file type
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'File type not allowed. Allowed types: PDF, Word, PowerPoint, Text, Images' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 });
     }
 
     // Create uploads directory if it doesn't exist
@@ -85,12 +79,9 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error('Error uploading file:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload file' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

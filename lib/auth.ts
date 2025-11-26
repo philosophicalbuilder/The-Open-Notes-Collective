@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query, queryOne } from './db';
+import { query } from './db';
 
 const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-change-in-production';
 
@@ -14,17 +14,17 @@ export interface User {
   student_type?: 'sdac' | 'non-sdac' | null;
 }
 
-// Hash password
+// hash password
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
 
-// Verify password
+// check password
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
 
-// Generate JWT token
+// make jwt token
 export function generateToken(user: User): string {
   return jwt.sign(
     {
@@ -37,7 +37,7 @@ export function generateToken(user: User): string {
   );
 }
 
-// Verify JWT token
+// check jwt token
 export function verifyToken(token: string): any {
   try {
     return jwt.verify(token, JWT_SECRET);
@@ -46,38 +46,22 @@ export function verifyToken(token: string): any {
   }
 }
 
-// Get user by computing ID
-export async function getUserByComputingId(computingId: string): Promise<User | null> {
-  const user = await queryOne<{
-    user_id: number;
-    computing_id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: 'student' | 'instructor';
-    student_type: 'sdac' | 'non-sdac' | null;
-  }>(
+// get user by computing id
+export async function getUserByComputingId(computingId: string): Promise<any> {
+  const results = await query<any[]>(
     'SELECT user_id, computing_id, email, first_name, last_name, role, student_type FROM users WHERE computing_id = ?',
     [computingId]
   );
-  return user as User | null;
+  return results.length > 0 ? results[0] : null;
 }
 
-// Get user by ID
-export async function getUserById(userId: number): Promise<User | null> {
-  const user = await queryOne<{
-    user_id: number;
-    computing_id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: 'student' | 'instructor';
-    student_type: 'sdac' | 'non-sdac' | null;
-  }>(
+// get user by id
+export async function getUserById(userId: number): Promise<any> {
+  const results = await query<any[]>(
     'SELECT user_id, computing_id, email, first_name, last_name, role, student_type FROM users WHERE user_id = ?',
     [userId]
   );
-  return user as User | null;
+  return results.length > 0 ? results[0] : null;
 }
 
 // Create user
@@ -111,23 +95,15 @@ export async function createUser(data: {
   return result.insertId;
 }
 
-// Authenticate user
-export async function authenticateUser(computingId: string, password: string): Promise<User | null> {
-  const user = await queryOne<{
-    user_id: number;
-    computing_id: string;
-    email: string;
-    password_hash: string;
-    first_name: string;
-    last_name: string;
-    role: 'student' | 'instructor';
-    student_type: 'sdac' | 'non-sdac' | null;
-  }>(
+// check if user login is valid
+export async function authenticateUser(computingId: string, password: string): Promise<any> {
+  const results = await query<any[]>(
     'SELECT user_id, computing_id, email, password_hash, first_name, last_name, role, student_type FROM users WHERE computing_id = ?',
     [computingId]
   );
 
-  if (!user) return null;
+  if (results.length === 0) return null;
+  const user = results[0];
 
   const isValid = await verifyPassword(password, user.password_hash);
   if (!isValid) return null;

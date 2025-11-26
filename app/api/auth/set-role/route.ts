@@ -26,22 +26,13 @@ export async function POST(request: NextRequest) {
       [role, role === 'student' ? student_type : null, session.user.email]
     );
 
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, description) VALUES ((SELECT user_id FROM users WHERE email = ?), ?, ?, ?)',
-      [session.user.email, 'update', 'user', `Role set to ${role}`]
-    );
-
     return NextResponse.json(
       { message: 'Role updated successfully' },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error('Error setting role:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

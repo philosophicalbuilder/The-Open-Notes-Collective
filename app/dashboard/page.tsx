@@ -152,13 +152,13 @@ export default function DashboardPage() {
     average_rating: 4.6,
   }
 
-  // Load enrolled courses on mount
+  // load courses when page loads
   useEffect(() => {
     loadEnrolledCourses()
     loadAvailableCourses()
   }, [])
 
-  // Load notes when course is selected
+  // load notes when you pick a course
   useEffect(() => {
     if (selectedCourse) {
       loadNotes(selectedCourse.id)
@@ -166,12 +166,12 @@ export default function DashboardPage() {
     }
   }, [selectedCourse])
 
-  // Debounced search - reload notes when search query changes
+  // search with delay so it doesn't spam the api
   useEffect(() => {
     if (selectedCourse) {
       const timeoutId = setTimeout(() => {
         loadNotes(selectedCourse.id, notesSearchQuery)
-      }, 300) // 300ms debounce
+      }, 300)
 
       return () => clearTimeout(timeoutId)
     }
@@ -217,7 +217,7 @@ export default function DashboardPage() {
       if (searchQuery && searchQuery.trim()) {
         url += `&search=${encodeURIComponent(searchQuery.trim())}`
       }
-      
+
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
@@ -263,7 +263,7 @@ export default function DashboardPage() {
   }
 
   const handleLogout = () => {
-    // Clear auth cookie
+    // delete cookie and go back to home
     document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
     router.push("/")
   }
@@ -277,7 +277,7 @@ export default function DashboardPage() {
       })
 
       if (response.ok) {
-        // Reload enrolled courses
+        // reload the courses list
         await loadEnrolledCourses()
         setIsDialogOpen(false)
         setSearchQuery("")

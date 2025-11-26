@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ratings r ON n.note_id = r.note_id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params = [];
 
     if (courseId) {
       sql += ` AND n.course_id = ?`;
@@ -62,12 +62,9 @@ export async function GET(request: NextRequest) {
     const notes = await query(sql, params);
 
     return NextResponse.json({ notes }, { status: 200 });
-  } catch (error: any) {
-    console.error('Error fetching notes:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 
@@ -111,28 +108,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create note
-    const result = await query<{ insertId: number }>(
+    const result: any = await query(
       `INSERT INTO notes (title, description, lecture, link, course_id, author_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [title, description, lecture || null, finalLink, course_id, decoded.userId]
-    );
-
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-      [decoded.userId, 'create', 'note', result.insertId, `Submitted note: ${title}`]
     );
 
     return NextResponse.json(
       { message: 'Note submitted successfully', note_id: result.insertId },
       { status: 201 }
     );
-  } catch (error: any) {
-    console.error('Error creating note:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

@@ -1,7 +1,6 @@
 import mysql from 'mysql2/promise';
 
-// Database connection configuration
-// These will be set via environment variables
+// database config
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
@@ -10,10 +9,6 @@ const dbConfig = {
   database: process.env.DB_NAME || 'open_notes_collective',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  // Railway requires SSL for external connections
   ssl: process.env.DB_HOST?.includes('railway') || process.env.DB_HOST?.includes('rlwy')
     ? { rejectUnauthorized: false }
     : undefined,
@@ -29,7 +24,7 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
-// Helper function to execute queries
+// run a query
 export async function query<T = any>(
   sql: string,
   params?: any[]
@@ -39,7 +34,7 @@ export async function query<T = any>(
   return results as T;
 }
 
-// Helper function to get a single row
+// get first row from query
 export async function queryOne<T = any>(
   sql: string,
   params?: any[]

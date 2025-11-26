@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ user }, { status: 200 });
-  } catch (error: any) {
-    console.error('Error getting session:', error);
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ user: null }, { status: 200 });
   }
 }

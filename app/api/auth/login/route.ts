@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser, generateToken } from '@/lib/auth';
-import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,12 +24,6 @@ export async function POST(request: NextRequest) {
 
     // Generate token
     const token = generateToken(user);
-
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, description, ip_address) VALUES (?, ?, ?, ?, ?)',
-      [user.user_id, 'login', 'user', 'User logged in', request.headers.get('x-forwarded-for') || 'unknown']
-    );
 
     // Set cookie
     const response = NextResponse.json(
@@ -57,12 +50,9 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 

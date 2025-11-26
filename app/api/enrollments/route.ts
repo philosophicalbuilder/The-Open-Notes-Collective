@@ -52,27 +52,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Create enrollment
-    const result = await query<{ insertId: number }>(
+    const result: any = await query(
       `INSERT INTO enrollments (student_id, course_id) VALUES (?, ?)`,
       [decoded.userId, course_id]
-    );
-
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-      [decoded.userId, 'create', 'enrollment', result.insertId, `Enrolled in course: ${course_id}`]
     );
 
     return NextResponse.json(
       { message: 'Enrolled successfully', enrollment_id: result.insertId },
       { status: 201 }
     );
-  } catch (error: any) {
-    console.error('Error creating enrollment:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 
@@ -114,12 +105,9 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({ enrollments }, { status: 200 });
-  } catch (error: any) {
-    console.error('Error fetching enrollments:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 
@@ -147,27 +135,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete enrollment
-    const result = await query(
+    await query(
       'DELETE FROM enrollments WHERE student_id = ? AND course_id = ?',
       [decoded.userId, courseId]
-    );
-
-    // Log activity
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
-      [decoded.userId, 'delete', 'enrollment', null, `Unenrolled from course: ${courseId}`]
     );
 
     return NextResponse.json(
       { message: 'Unenrolled successfully' },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error('Error deleting enrollment:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
 
