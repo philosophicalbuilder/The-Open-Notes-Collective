@@ -20,9 +20,9 @@ async function addNotes() {
     let connection: mysql.Connection | null = null;
 
     try {
-        console.log('🔌 Connecting to database...');
+        console.log('Connecting to database...');
         connection = await mysql.createConnection(dbConfig);
-        console.log('✅ Connected successfully!\n');
+        console.log('Connected successfully!\n');
 
         // Get Database Systems course ID
         const [courses]: any = await connection.execute(
@@ -30,12 +30,12 @@ async function addNotes() {
         );
 
         if (courses.length === 0) {
-            console.log('❌ Database Systems course not found!');
+        console.log('Database Systems course not found!');
             return;
         }
 
         const courseId = courses[0].course_id;
-        console.log(`📚 Course ID: ${courseId}\n`);
+        console.log(`Course ID: ${courseId}\n`);
 
         // Get enrolled students
         const [enrollments]: any = await connection.execute(
@@ -47,11 +47,11 @@ async function addNotes() {
         );
 
         if (enrollments.length === 0) {
-            console.log('❌ No enrolled students found!');
+        console.log('No enrolled students found!');
             return;
         }
 
-        console.log(`👥 Found ${enrollments.length} enrolled students\n`);
+        console.log(`Found ${enrollments.length} enrolled students\n`);
 
         // Create a variety of notes from different students
         const notes = [
@@ -176,14 +176,14 @@ async function addNotes() {
             },
         ];
 
-        console.log(`📝 Creating ${notes.length} notes...\n`);
+        console.log(`Creating ${notes.length} notes...\n`);
 
         let created = 0;
         let skipped = 0;
 
         for (const note of notes) {
             if (!note.author_id) {
-                console.log(`   ⚠️  Skipping "${note.title}" - author not found`);
+                console.log(`    Skipping "${note.title}" - author not found`);
                 skipped++;
                 continue;
             }
@@ -201,22 +201,22 @@ async function addNotes() {
                 );
 
                 const author = enrollments.find((e: any) => e.user_id === note.author_id);
-                console.log(`   ✅ Created: "${note.title}" by ${author?.first_name} ${author?.last_name}`);
+                console.log(`   Created: "${note.title}" by ${author?.first_name} ${author?.last_name}`);
                 created++;
             } catch (error: any) {
                 if (error.code === 'ER_DUP_ENTRY') {
-                    console.log(`   ⚠️  Skipping "${note.title}" - already exists`);
+                    console.log(`    Skipping "${note.title}" - already exists`);
                     skipped++;
                 } else {
-                    console.error(`   ❌ Error creating "${note.title}":`, error.message);
+                    console.error(`    Error creating "${note.title}":`, error.message);
                     skipped++;
                 }
             }
         }
 
-        console.log(`\n✅ Created ${created} notes`);
+        console.log(`\n Created ${created} notes`);
         if (skipped > 0) {
-            console.log(`⚠️  Skipped ${skipped} notes`);
+            console.log(` Skipped ${skipped} notes`);
         }
 
         // Show summary
@@ -229,12 +229,12 @@ async function addNotes() {
             [courseId]
         );
 
-        console.log(`\n📊 Summary for Database Systems:`);
-        console.log(`   Total notes: ${summary[0].total_notes}`);
-        console.log(`   Unique authors: ${summary[0].unique_authors}`);
+        console.log(`\n Summary for Database Systems:`);
+        console.log(`  Total notes: ${summary[0].total_notes}`);
+        console.log(`  Unique authors: ${summary[0].unique_authors}`);
 
     } catch (error: any) {
-        console.error('\n❌ Error:', error.message);
+        console.error('\n Error:', error.message);
         if (error.code) {
             console.error(`Error code: ${error.code}`);
         }
@@ -242,18 +242,18 @@ async function addNotes() {
     } finally {
         if (connection) {
             await connection.end();
-            console.log('\n🔌 Database connection closed.');
+            console.log('\n Database connection closed.');
         }
     }
 }
 
 addNotes()
     .then(() => {
-        console.log('\n✅ Done!');
+        console.log('\n Done!');
         process.exit(0);
     })
     .catch((error) => {
-        console.error('\n❌ Failed:', error);
+        console.error('\n Failed:', error);
         process.exit(1);
     });
 

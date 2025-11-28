@@ -5,6 +5,7 @@ import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Re
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
+import { formatDate, format } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
@@ -31,76 +32,6 @@ type NoteSubmission = {
   lecture: string
 }
 
-const initialNoteSubmissions: Record<number, NoteSubmission[]> = {
-  1: [
-    {
-      id: 1,
-      title: "SQL Joins and Aggregations",
-      author: "Sarah Chen",
-      date: "Nov 20, 2025",
-      rating: 4.5,
-      description:
-        "Comprehensive notes covering INNER JOIN, LEFT JOIN, RIGHT JOIN, and common aggregate functions like COUNT, SUM, AVG. Includes practical examples and common pitfalls to avoid.",
-      link: "https://drive.google.com/file/d/example1",
-      lecture: "Lecture 3",
-    },
-    {
-      id: 2,
-      title: "Database Normalization Guide",
-      author: "Michael Johnson",
-      date: "Nov 19, 2025",
-      rating: 4.8,
-      description:
-        "Step-by-step guide through 1NF, 2NF, 3NF, and BCNF with real-world examples. Explains functional dependencies and how to identify normalization opportunities.",
-      link: "https://www.dropbox.com/s/example2",
-      lecture: "Lecture 5",
-    },
-    {
-      id: 3,
-      title: "Transaction Management Notes",
-      author: "Emily Rodriguez",
-      date: "Nov 18, 2025",
-      rating: 4.2,
-      description:
-        "Detailed explanation of transaction properties, isolation levels, and deadlock prevention strategies. Includes diagrams and pseudocode examples.",
-      link: "https://drive.google.com/file/d/example3",
-      lecture: "Lecture 8",
-    },
-    {
-      id: 4,
-      title: "Indexing and Query Optimization",
-      author: "James Park",
-      date: "Nov 17, 2025",
-      rating: 4.6,
-      description:
-        "Notes on B-tree and hash indexes, query execution plans, and optimization techniques. Contains before/after examples showing performance improvements.",
-      link: "https://onedrive.live.com/example4",
-      lecture: "Lecture 6",
-    },
-    {
-      id: 5,
-      title: "NoSQL vs SQL Comparison",
-      author: "Lisa Wang",
-      date: "Nov 15, 2025",
-      rating: 4.4,
-      description:
-        "Side-by-side comparison of SQL and NoSQL databases, covering use cases, data modeling approaches, and scalability considerations.",
-      link: "https://drive.google.com/file/d/example5",
-      lecture: "Lecture 10",
-    },
-    {
-      id: 6,
-      title: "ACID Properties Deep Dive",
-      author: "David Kim",
-      date: "Nov 14, 2025",
-      rating: 4.7,
-      description:
-        "In-depth exploration of Atomicity, Consistency, Isolation, and Durability. Includes real-world scenarios and how databases implement these properties.",
-      link: "https://www.dropbox.com/s/example6",
-      lecture: "Lecture 7",
-    },
-  ],
-}
 
 type Course = {
   id: number
@@ -247,7 +178,7 @@ export default function DashboardPage() {
           lecture: note.lecture,
           link: note.link,
           author: `${note.author_first_name} ${note.author_last_name}`,
-          date: new Date(note.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          date: formatDate(note.created_at),
           rating: parseFloat(note.average_rating) || 0,
         }))
         setNoteSubmissions((prev) => ({
@@ -720,11 +651,10 @@ export default function DashboardPage() {
                     courses.map((course) => (
                       <div
                         key={course.id}
-                        className={`group relative w-full px-3 py-2 rounded-md text-sm transition-colors ${
-                          selectedCourse?.id === course.id
-                            ? "bg-neutral-100 text-foreground"
-                            : "text-muted-foreground hover:bg-neutral-50"
-                        }`}
+                        className={`group relative w-full px-3 py-2 rounded-md text-sm transition-colors ${selectedCourse?.id === course.id
+                          ? "bg-neutral-100 text-foreground"
+                          : "text-muted-foreground hover:bg-neutral-50"
+                          }`}
                       >
                         <button
                           onClick={() => setSelectedCourse(course)}
@@ -951,7 +881,7 @@ export default function DashboardPage() {
                         <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
                           <span>{submission.author}</span>
-                          <span>•</span>
+                          <span>&middot;</span>
                           <span>{submission.date}</span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -1047,7 +977,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-foreground">{message.text}</p>
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-xs text-muted-foreground">
-                        {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {format(message.timestamp, 'h:mm a')}
                       </p>
                       <div className="flex items-center gap-3">
                         {message.replies && message.replies.length > 0 && (
@@ -1253,7 +1183,7 @@ export default function DashboardPage() {
                       const starValue = i + 1
                       const isFilled = i < Math.floor(selectedNote.rating) || (i < selectedNote.rating && selectedNote.rating % 1 >= 0.5)
                       const isUserRating = userRating !== null && starValue <= userRating
-                      
+
                       return (
                         <Star
                           key={i}
@@ -1262,13 +1192,12 @@ export default function DashboardPage() {
                               submitRating(selectedNote.id, starValue)
                             }
                           }}
-                          className={`h-5 w-5 cursor-pointer transition-colors ${
-                            isUserRating
-                              ? "fill-yellow-500 text-yellow-500"
-                              : isFilled
+                          className={`h-5 w-5 cursor-pointer transition-colors ${isUserRating
+                            ? "fill-yellow-500 text-yellow-500"
+                            : isFilled
                               ? "fill-yellow-400 text-yellow-400"
                               : "text-neutral-300"
-                          } ${isSubmittingRating ? "opacity-50 cursor-not-allowed" : "hover:text-yellow-400"}`}
+                            } ${isSubmittingRating ? "opacity-50 cursor-not-allowed" : "hover:text-yellow-400"}`}
                         />
                       )
                     })}

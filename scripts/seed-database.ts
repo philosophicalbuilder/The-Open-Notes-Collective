@@ -21,9 +21,9 @@ async function seedDatabase() {
   let connection: mysql.Connection | null = null;
 
   try {
-    console.log('🔌 Connecting to database...');
+    console.log('Connecting to database...');
     connection = await mysql.createConnection(dbConfig);
-    console.log('✅ Connected successfully!\n');
+    console.log('Connected successfully!\n');
 
     // Helper function to hash passwords
     const hashPassword = async (password: string): Promise<string> => {
@@ -31,13 +31,13 @@ async function seedDatabase() {
     };
 
     // 1. Create or get current semester
-    console.log('📅 Setting up semester...');
+    console.log('Setting up semester...');
     const [semesterResult]: any = await connection.execute(
       `INSERT INTO semesters (name, start_date, end_date, is_current)
        VALUES ('Fall 2025', '2025-08-25', '2025-12-15', TRUE)
        ON DUPLICATE KEY UPDATE is_current = TRUE`
     );
-    
+
     let semesterId: number;
     if (semesterResult.insertId) {
       semesterId = semesterResult.insertId;
@@ -47,10 +47,10 @@ async function seedDatabase() {
       );
       semesterId = semester[0].semester_id;
     }
-    console.log(`✅ Semester ID: ${semesterId}\n`);
+    console.log(`Semester ID: ${semesterId}\n`);
 
     // 2. Create instructors
-    console.log('👨‍🏫 Creating instructors...');
+    console.log('Creating instructors...');
     const instructors = [
       {
         computing_id: 'prof_smith',
@@ -80,7 +80,7 @@ async function seedDatabase() {
           [instructor.computing_id, instructor.email, passwordHash, instructor.first_name, instructor.last_name, instructor.phone]
         );
         instructorIds.push(result.insertId);
-        console.log(`   ✅ Created instructor: ${instructor.first_name} ${instructor.last_name} (ID: ${result.insertId})`);
+        console.log(`   Created instructor: ${instructor.first_name} ${instructor.last_name} (ID: ${result.insertId})`);
       } catch (error: any) {
         if (error.code === 'ER_DUP_ENTRY') {
           const [existing]: any = await connection.execute(
@@ -88,7 +88,7 @@ async function seedDatabase() {
             [instructor.computing_id]
           );
           instructorIds.push(existing[0].user_id);
-          console.log(`   ⚠️  Instructor already exists: ${instructor.first_name} ${instructor.last_name}`);
+          console.log(`    Instructor already exists: ${instructor.first_name} ${instructor.last_name}`);
         } else {
           throw error;
         }
@@ -97,7 +97,7 @@ async function seedDatabase() {
     console.log('');
 
     // 3. Create students
-    console.log('👨‍🎓 Creating students...');
+    console.log('Creating students...');
     const students = [
       {
         computing_id: 'abc2def',
@@ -187,7 +187,7 @@ async function seedDatabase() {
           ]
         );
         studentIds.push(result.insertId);
-        console.log(`   ✅ Created student: ${student.first_name} ${student.last_name} (ID: ${result.insertId})`);
+        console.log(`   Created student: ${student.first_name} ${student.last_name} (ID: ${result.insertId})`);
       } catch (error: any) {
         if (error.code === 'ER_DUP_ENTRY') {
           const [existing]: any = await connection.execute(
@@ -195,7 +195,7 @@ async function seedDatabase() {
             [student.computing_id]
           );
           studentIds.push(existing[0].user_id);
-          console.log(`   ⚠️  Student already exists: ${student.first_name} ${student.last_name}`);
+          console.log(`    Student already exists: ${student.first_name} ${student.last_name}`);
         } else {
           throw error;
         }
@@ -204,7 +204,7 @@ async function seedDatabase() {
     console.log('');
 
     // 4. Create courses
-    console.log('📚 Creating courses...');
+    console.log('Creating courses...');
     const courses = [
       {
         name: 'Database Systems',
@@ -238,7 +238,7 @@ async function seedDatabase() {
           [course.name, course.code, course.section_id, course.description, course.instructor_id, semesterId]
         );
         courseIds.push(result.insertId);
-        console.log(`   ✅ Created course: ${course.name} [${course.code}] (ID: ${result.insertId})`);
+        console.log(`   Created course: ${course.name} [${course.code}] (ID: ${result.insertId})`);
       } catch (error: any) {
         if (error.code === 'ER_DUP_KEY') {
           const [existing]: any = await connection.execute(
@@ -246,7 +246,7 @@ async function seedDatabase() {
             [course.code, course.section_id, semesterId]
           );
           courseIds.push(existing[0].course_id);
-          console.log(`   ⚠️  Course already exists: ${course.name}`);
+          console.log(`    Course already exists: ${course.name}`);
         } else {
           throw error;
         }
@@ -255,7 +255,7 @@ async function seedDatabase() {
     console.log('');
 
     // 5. Enroll students in courses
-    console.log('📝 Enrolling students in courses...');
+    console.log('Enrolling students in courses...');
     const enrollments = [
       // Database Systems enrollments
       { student_id: studentIds[0], course_id: courseIds[0] },
@@ -287,14 +287,14 @@ async function seedDatabase() {
         enrollmentCount++;
       } catch (error: any) {
         if (error.code !== 'ER_DUP_ENTRY') {
-          console.error(`   ⚠️  Error enrolling student ${enrollment.student_id} in course ${enrollment.course_id}:`, error.message);
+          console.error(`     Error enrolling student ${enrollment.student_id} in course ${enrollment.course_id}:`, error.message);
         }
       }
     }
-    console.log(`   ✅ Created ${enrollmentCount} enrollments\n`);
+    console.log(`   Created ${enrollmentCount} enrollments\n`);
 
     // 6. Create notes
-    console.log('📄 Creating notes...');
+    console.log('Creating notes...');
     const notes = [
       {
         title: 'SQL Joins and Aggregations',
@@ -363,15 +363,15 @@ async function seedDatabase() {
           [note.title, note.description, note.lecture, note.link, note.course_id, note.author_id]
         );
         noteIds.push(result.insertId);
-        console.log(`   ✅ Created note: "${note.title}" (ID: ${result.insertId})`);
+        console.log(`   Created note: "${note.title}" (ID: ${result.insertId})`);
       } catch (error: any) {
-        console.error(`   ⚠️  Error creating note "${note.title}":`, error.message);
+        console.error(`     Error creating note "${note.title}":`, error.message);
       }
     }
     console.log('');
 
     // 7. Add ratings
-    console.log('⭐ Adding ratings...');
+    console.log('Adding ratings...');
     const ratings = [
       { note_id: noteIds[0], user_id: studentIds[1], rating: 4.5 },
       { note_id: noteIds[0], user_id: studentIds[2], rating: 4.8 },
@@ -400,33 +400,33 @@ async function seedDatabase() {
         ratingCount++;
       } catch (error: any) {
         if (error.code !== 'ER_DUP_ENTRY') {
-          console.error(`   ⚠️  Error adding rating:`, error.message);
+          console.error(`     Error adding rating:`, error.message);
         }
       }
     }
-    console.log(`   ✅ Created ${ratingCount} ratings\n`);
+    console.log(`   Created ${ratingCount} ratings\n`);
 
-    console.log('🎉 Database seeding completed successfully!');
-    console.log('\n📊 Summary:');
-    console.log(`   - ${instructorIds.length} instructors`);
-    console.log(`   - ${studentIds.length} students`);
-    console.log(`   - ${courseIds.length} courses`);
-    console.log(`   - ${enrollmentCount} enrollments`);
-    console.log(`   - ${noteIds.length} notes`);
-    console.log(`   - ${ratingCount} ratings`);
-    console.log('\n🔑 Test credentials (all passwords: "password123"):');
-    console.log('   Instructors:');
+    console.log('Database seeding completed successfully!');
+    console.log('\n Summary:');
+    console.log(`  - ${instructorIds.length} instructors`);
+    console.log(`  - ${studentIds.length} students`);
+    console.log(`  - ${courseIds.length} courses`);
+    console.log(`  - ${enrollmentCount} enrollments`);
+    console.log(`  - ${noteIds.length} notes`);
+    console.log(`  - ${ratingCount} ratings`);
+    console.log('\n Test credentials (all passwords: "password123"):');
+    console.log(' Instructors:');
     instructors.forEach((inst, i) => {
-      console.log(`     - ${inst.computing_id}@virginia.edu (${inst.first_name} ${inst.last_name})`);
+      console.log(`    - ${inst.computing_id}@virginia.edu (${inst.first_name} ${inst.last_name})`);
     });
-    console.log('   Students:');
+    console.log(' Students:');
     students.slice(0, 3).forEach((stu) => {
-      console.log(`     - ${stu.computing_id}@virginia.edu (${stu.first_name} ${stu.last_name})`);
+      console.log(`    - ${stu.computing_id}@virginia.edu (${stu.first_name} ${stu.last_name})`);
     });
     console.log('');
 
   } catch (error: any) {
-    console.error('\n❌ Seeding failed:');
+    console.error('\n Seeding failed:');
     console.error(error.message);
     if (error.code) {
       console.error(`Error code: ${error.code}`);
@@ -435,7 +435,7 @@ async function seedDatabase() {
   } finally {
     if (connection) {
       await connection.end();
-      console.log('🔌 Database connection closed.');
+      console.log('Database connection closed.');
     }
   }
 }
@@ -443,11 +443,11 @@ async function seedDatabase() {
 // Run the seeding
 seedDatabase()
   .then(() => {
-    console.log('✅ Done!');
+    console.log('Done!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n❌ Seeding failed:', error);
+    console.error('\n Seeding failed:', error);
     process.exit(1);
   });
 

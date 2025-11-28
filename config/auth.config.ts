@@ -81,14 +81,15 @@ export const authConfig = {
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user = {
-          ...session.user,
+      if (token && session.user) {
+        // Extend session.user with custom properties from token
+        // TypeScript requires explicit assignment due to NextAuth's strict typing
+        Object.assign(session.user, {
           id: token.userId as number,
           computingId: token.computingId as string,
           role: token.role as 'student' | 'instructor',
           studentType: token.studentType as 'sdac' | 'non-sdac' | null,
-        };
+        });
       }
       return session;
     },

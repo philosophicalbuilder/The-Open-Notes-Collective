@@ -20,9 +20,9 @@ async function reduceNotes() {
   let connection: mysql.Connection | null = null;
 
   try {
-    console.log('🔌 Connecting to database...');
+        console.log('Connecting to database...');
     connection = await mysql.createConnection(dbConfig);
-    console.log('✅ Connected successfully!\n');
+        console.log('Connected successfully!\n');
 
     // Get Database Systems course ID
     const [courses]: any = await connection.execute(
@@ -30,7 +30,7 @@ async function reduceNotes() {
     );
 
     if (courses.length === 0) {
-      console.log('❌ Database Systems course not found!');
+        console.log('Database Systems course not found!');
       return;
     }
 
@@ -45,16 +45,16 @@ async function reduceNotes() {
       [courseId]
     );
 
-    console.log(`📄 Current notes: ${allNotes.length}`);
-    console.log(`🎯 Target: 13 notes\n`);
+    console.log(`Current notes: ${allNotes.length}`);
+    console.log(`Target: 13 notes\n`);
 
     if (allNotes.length <= 13) {
-      console.log('✅ Already at or below target!');
+        console.log('Already at or below target!');
       return;
     }
 
     const toDelete = allNotes.length - 13;
-    console.log(`🗑️  Need to delete ${toDelete} notes\n`);
+    console.log(` Need to delete ${toDelete} notes\n`);
 
     // Delete the most recent notes (keep the older ones)
     // Actually, let's keep a good distribution - delete some from authors who have many
@@ -65,7 +65,7 @@ async function reduceNotes() {
         'DELETE FROM notes WHERE note_id = ?',
         [note.note_id]
       );
-      console.log(`   ✅ Deleted: "${note.title}" (${note.lecture})`);
+      console.log(`   Deleted: "${note.title}" (${note.lecture})`);
     }
 
     // Verify final count
@@ -74,7 +74,7 @@ async function reduceNotes() {
       [courseId]
     );
 
-    console.log(`\n✅ Final count: ${finalCount[0].count} notes`);
+    console.log(`\n Final count: ${finalCount[0].count} notes`);
 
     // Show distribution by author
     const [distribution]: any = await connection.execute(
@@ -90,13 +90,13 @@ async function reduceNotes() {
       [courseId]
     );
 
-    console.log(`\n📊 Notes by author:`);
+    console.log(`\n Notes by author:`);
     for (const author of distribution) {
-      console.log(`   ${author.first_name} ${author.last_name}: ${author.note_count} notes`);
+      console.log(`  ${author.first_name} ${author.last_name}: ${author.note_count} notes`);
     }
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\n Error:', error.message);
     if (error.code) {
       console.error(`Error code: ${error.code}`);
     }
@@ -104,18 +104,18 @@ async function reduceNotes() {
   } finally {
     if (connection) {
       await connection.end();
-      console.log('\n🔌 Database connection closed.');
+      console.log('\n Database connection closed.');
     }
   }
 }
 
 reduceNotes()
   .then(() => {
-    console.log('\n✅ Done!');
+    console.log('\n Done!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n❌ Failed:', error);
+    console.error('\n Failed:', error);
     process.exit(1);
   });
 

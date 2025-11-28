@@ -19,7 +19,7 @@ const dbConfig = {
 
 async function runMigration() {
   let connection: mysql.Connection | null = null;
-  
+
   try {
     console.log('Connecting to database...');
     connection = await mysql.createConnection(dbConfig);
@@ -47,13 +47,13 @@ async function runMigration() {
         console.log(`Executing statement ${i + 1}/${statements.length}...`);
         try {
           await connection.execute(statement);
-          console.log(`✓ Statement ${i + 1} executed successfully`);
+          console.log(`Statement ${i + 1} executed successfully`);
         } catch (error: any) {
           // Check if it's a "duplicate column" error (already migrated)
           if (error.code === 'ER_DUP_FIELDNAME') {
-            console.log(`⚠ Column already exists, skipping...`);
+            console.log(`Column already exists, skipping...`);
           } else if (error.code === 'ER_DUP_KEYNAME') {
-            console.log(`⚠ Index/constraint already exists, skipping...`);
+            console.log(`Index/constraint already exists, skipping...`);
           } else {
             throw error;
           }
@@ -61,9 +61,9 @@ async function runMigration() {
       }
     }
 
-    console.log('\n✅ Migration completed successfully!');
+    console.log('\nMigration completed successfully!');
   } catch (error: any) {
-    console.error('\n❌ Migration failed:');
+    console.error('\n Migration failed:');
     console.error(error.message);
     if (error.code) {
       console.error(`Error code: ${error.code}`);

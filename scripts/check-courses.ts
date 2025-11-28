@@ -20,9 +20,9 @@ async function checkCourses() {
   let connection: mysql.Connection | null = null;
 
   try {
-    console.log('🔌 Connecting to database...');
+        console.log('Connecting to database...');
     connection = await mysql.createConnection(dbConfig);
-    console.log('✅ Connected successfully!\n');
+        console.log('Connected successfully!\n');
 
     const [courses]: any = await connection.execute(
       `SELECT course_id, name, code, section_id, semester_id, instructor_id
@@ -36,7 +36,7 @@ async function checkCourses() {
     }
 
   } catch (error: any) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\n Error:', error.message);
     process.exit(1);
   } finally {
     if (connection) {
@@ -47,11 +47,11 @@ async function checkCourses() {
 
 checkCourses()
   .then(() => {
-    console.log('\n✅ Done!');
+    console.log('\n Done!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n❌ Failed:', error);
+    console.error('\n Failed:', error);
     process.exit(1);
   });
 

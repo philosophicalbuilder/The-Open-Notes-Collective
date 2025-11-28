@@ -20,9 +20,9 @@ async function checkNotes() {
     let connection: mysql.Connection | null = null;
 
     try {
-        console.log('🔌 Connecting to database...');
+        console.log('Connecting to database...');
         connection = await mysql.createConnection(dbConfig);
-        console.log('✅ Connected successfully!\n');
+        console.log('Connected successfully!\n');
 
         // Get Database Systems course ID
         const [courses]: any = await connection.execute(
@@ -30,12 +30,12 @@ async function checkNotes() {
         );
 
         if (courses.length === 0) {
-            console.log('❌ Database Systems course not found!');
+            console.log('Database Systems course not found!');
             return;
         }
 
         const courseId = courses[0].course_id;
-        console.log(`📚 Course: ${courses[0].name} [${courses[0].code}] (ID: ${courseId})\n`);
+        console.log(`Course: ${courses[0].name} [${courses[0].code}] (ID: ${courseId})\n`);
 
         // Get enrolled students
         const [enrollments]: any = await connection.execute(
@@ -46,9 +46,9 @@ async function checkNotes() {
             [courseId]
         );
 
-        console.log(`👥 Enrolled students (${enrollments.length}):`);
+        console.log(`Enrolled students (${enrollments.length}):`);
         for (const student of enrollments) {
-            console.log(`   - ${student.first_name} ${student.last_name} (${student.computing_id}) - ID: ${student.user_id}`);
+            console.log(`  - ${student.first_name} ${student.last_name} (${student.computing_id}) - ID: ${student.user_id}`);
         }
 
         // Get existing notes
@@ -61,13 +61,13 @@ async function checkNotes() {
             [courseId]
         );
 
-        console.log(`\n📄 Existing notes (${notes.length}):`);
+        console.log(`\nExisting notes (${notes.length}):`);
         for (const note of notes) {
-            console.log(`   - "${note.title}" (${note.lecture}) by ${note.first_name} ${note.last_name} - ${new Date(note.created_at).toLocaleDateString()}`);
+            console.log(`  - "${note.title}" (${note.lecture}) by ${note.first_name} ${note.last_name} - ${new Date(note.created_at).toLocaleDateString()}`);
         }
 
     } catch (error: any) {
-        console.error('\n❌ Error:', error.message);
+        console.error('\n Error:', error.message);
         process.exit(1);
     } finally {
         if (connection) {
@@ -78,11 +78,11 @@ async function checkNotes() {
 
 checkNotes()
     .then(() => {
-        console.log('\n✅ Done!');
+        console.log('\n Done!');
         process.exit(0);
     })
     .catch((error) => {
-        console.error('\n❌ Failed:', error);
+        console.error('\n Failed:', error);
         process.exit(1);
     });
 

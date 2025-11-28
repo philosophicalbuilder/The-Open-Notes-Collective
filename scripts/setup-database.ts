@@ -20,13 +20,13 @@ async function setupDatabase() {
   });
 
   try {
-    console.log('✅ Connected to database');
+        console.log('Connected to database');
     
     // Read the schema file
     const schemaPath = path.join(process.cwd(), 'database-schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     
-    console.log('📄 Reading schema file...');
+        console.log('Reading schema file...');
     
     // Split by semicolons and execute each statement
     // Remove comments and split properly
@@ -47,7 +47,7 @@ async function setupDatabase() {
       .map(s => s.trim())
       .filter(s => s.length > 0 && s.length > 10); // Filter out empty or very short statements
     
-    console.log(`📊 Found ${statements.length} SQL statements to execute`);
+    console.log(`Found ${statements.length} SQL statements to execute`);
     
     // Execute all statements
     for (let i = 0; i < statements.length; i++) {
@@ -55,30 +55,30 @@ async function setupDatabase() {
       if (statement.trim()) {
         try {
           await connection.query(statement);
-          console.log(`✅ Executed statement ${i + 1}/${statements.length}`);
+          console.log(`Executed statement ${i + 1}/${statements.length}`);
         } catch (error: any) {
           // Ignore "table already exists" errors
           if (error.code === 'ER_TABLE_EXISTS_ERROR' || error.message?.includes('already exists')) {
-            console.log(`⚠️  Statement ${i + 1}: Table already exists (skipping)`);
+            console.log(` Statement ${i + 1}: Table already exists (skipping)`);
           } else {
-            console.error(`❌ Error in statement ${i + 1}:`, error.message);
+            console.error(` Error in statement ${i + 1}:`, error.message);
             throw error;
           }
         }
       }
     }
     
-    console.log('\n🎉 Database setup complete! All tables created successfully.');
+    console.log('\n Database setup complete! All tables created successfully.');
     
     // Verify tables were created
     const [tables] = await connection.query('SHOW TABLES');
-    console.log(`\n📋 Created tables: ${(tables as any[]).length}`);
+    console.log(`\n Created tables: ${(tables as any[]).length}`);
     (tables as any[]).forEach((table: any) => {
-      console.log(`   - ${Object.values(table)[0]}`);
+      console.log(`  - ${Object.values(table)[0]}`);
     });
     
   } catch (error: any) {
-    console.error('❌ Error setting up database:', error.message);
+    console.error(' Error setting up database:', error.message);
     throw error;
   } finally {
     await connection.end();
@@ -88,11 +88,11 @@ async function setupDatabase() {
 // Run the setup
 setupDatabase()
   .then(() => {
-    console.log('\n✅ Done!');
+    console.log('\n Done!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n❌ Setup failed:', error);
+    console.error('\n Setup failed:', error);
     process.exit(1);
   });
 

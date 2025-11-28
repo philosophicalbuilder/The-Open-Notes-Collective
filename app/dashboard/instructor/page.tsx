@@ -5,6 +5,7 @@ import { User, LogOut, Plus, Search, BookOpen, Star, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
+import { formatDate } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -532,11 +533,7 @@ export default function InstructorDashboardPage() {
                           By {note.author_first_name} {note.author_last_name}
                         </span>
                         <span>
-                          {new Date(note.created_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatDate(note.created_at)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
