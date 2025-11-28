@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from './auth';
+import { query } from './db';
 
 // Helper functions for API route authentication and response handling.
 // Created these to avoid repeating the same auth checks in every route.
@@ -37,6 +38,26 @@ export function apiResponse(data: any, status = 200) {
 // Default status is 500, but should be set appropriately (400, 401, 404, etc.)
 export function apiError(message: string, status = 500) {
     return NextResponse.json({ error: message }, { status });
+}
+
+// Logs user activity to the activity_logs table
+// Used for audit trail and analytics
+export async function logActivity(
+    userId: number,
+    actionType: string,
+    entityType: string,
+    entityId?: number,
+    description?: string
+) {
+    try {
+        await query(
+            'INSERT INTO activity_logs (user_id, action_type, entity_type, entity_id, description) VALUES (?, ?, ?, ?, ?)',
+            [userId, actionType, entityType, entityId || null, description || null]
+        );
+    } catch (error) {
+        // Don't fail the request if logging fails - just log to console
+        console.error('Failed to log activity:', error);
+    }
 }
 
 // Wrapper function that handles errors for all API route handlers.

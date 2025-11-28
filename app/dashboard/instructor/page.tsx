@@ -49,6 +49,15 @@ type NoteSummary = {
   rating_count: number
 }
 
+type Lecture = {
+  lecture_id: number
+  course_id: number
+  lecture_date: string
+  topic: string
+  created_at: string
+  note_count: number
+}
+
 const availableCourses: Course[] = []
 
 export default function InstructorDashboardPage() {
@@ -73,6 +82,11 @@ export default function InstructorDashboardPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<number | null>(null)
   const [isDeleteNoteModalOpen, setIsDeleteNoteModalOpen] = useState(false)
+  const [lectures, setLectures] = useState<Lecture[]>([])
+  const [isCreateLectureOpen, setIsCreateLectureOpen] = useState(false)
+  const [lectureDate, setLectureDate] = useState("")
+  const [lectureTopic, setLectureTopic] = useState("")
+  const [isLoadingLectures, setIsLoadingLectures] = useState(false)
 
   useEffect(() => {
     loadCourses()
@@ -95,6 +109,7 @@ export default function InstructorDashboardPage() {
     if (selectedCourse) {
       loadStudents(selectedCourse.id)
       loadNotes(selectedCourse.id)
+      loadLectures(selectedCourse.id)
     }
   }, [selectedCourse])
 
@@ -150,6 +165,50 @@ export default function InstructorDashboardPage() {
       console.error('Error loading notes:', error)
     } finally {
       setIsLoadingNotes(false)
+    }
+  }
+
+  const loadLectures = async (courseId: number) => {
+    setIsLoadingLectures(true)
+    try {
+      const response = await fetch(`/api/lectures?course_id=${courseId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setLectures(data.lectures || [])
+      }
+    } catch (error) {
+      console.error('Error loading lectures:', error)
+    } finally {
+      setIsLoadingLectures(false)
+    }
+  }
+
+  const handleCreateLecture = async () => {
+    if (!selectedCourse || !lectureDate || !lectureTopic.trim()) return
+
+    try {
+      const response = await fetch('/api/lectures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id: selectedCourse.id,
+          lecture_date: lectureDate,
+          topic: lectureTopic.trim(),
+        }),
+      })
+
+      if (response.ok) {
+        await loadLectures(selectedCourse.id)
+        setLectureDate("")
+        setLectureTopic("")
+        setIsCreateLectureOpen(false)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to create lecture')
+      }
+    } catch (error) {
+      console.error('Error creating lecture:', error)
+      alert('Failed to create lecture')
     }
   }
 
@@ -358,8 +417,8 @@ export default function InstructorDashboardPage() {
                       <div
                         key={course.id}
                         className={`group relative w-full px-3 py-2 rounded-md text-sm transition-colors ${selectedCourse?.id === course.id
-                            ? "bg-neutral-100 text-foreground"
-                            : "text-muted-foreground hover:bg-neutral-50"
+                          ? "bg-neutral-100 text-foreground"
+                          : "text-muted-foreground hover:bg-neutral-50"
                           }`}
                       >
                         <button
@@ -469,6 +528,88 @@ export default function InstructorDashboardPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white border border-neutral-200 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-foreground">Lectures</h2>
+                  <Dialog open={isCreateLectureOpen} onOpenChange={setIsCreateLectureOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add Lecture
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>Create Lecture</DialogTitle>
+                        <DialogDescription>
+                          Add a lecture schedule for this course. Students will see these when viewing the course.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="lecture-date">Lecture Date</Label>
+                          <Input
+                            id="lecture-date"
+                            type="date"
+                            value={lectureDate}
+                            onChange={(e) => setLectureDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lecture-topic">Topic</Label>
+                          <Input
+                            id="lecture-topic"
+                            placeholder="e.g., Introduction to SQL"
+                            value={lectureTopic}
+                            onChange={(e) => setLectureTopic(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          onClick={handleCreateLecture}
+                          disabled={!lectureDate || !lectureTopic.trim()}
+                          className="w-full"
+                        >
+                          Create Lecture
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                {isLoadingLectures ? (
+                  <p className="text-sm text-muted-foreground">Loading lectures...</p>
+                ) : lectures.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No lectures scheduled yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {lectures.map((lecture) => (
+                      <div
+                        key={lecture.lecture_id}
+                        className="border border-neutral-200 rounded-lg p-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium text-foreground">
+                                {new Date(lecture.lecture_date).toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{lecture.topic}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {lecture.note_count} {lecture.note_count === 1 ? 'note' : 'notes'} uploaded
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

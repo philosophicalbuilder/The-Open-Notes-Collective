@@ -28,6 +28,15 @@ type Course = {
   code: string
 }
 
+type Lecture = {
+  lecture_id: number
+  course_id: number
+  lecture_date: string
+  topic: string
+  created_at: string
+  note_count: number
+}
+
 type Message = {
   id: number
   text: string
@@ -70,6 +79,8 @@ export default function DashboardPage() {
   const [courseToRemove, setCourseToRemove] = useState<number | null>(null)
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [lectures, setLectures] = useState<Lecture[]>([])
+  const [isLoadingLectures, setIsLoadingLectures] = useState(false)
 
   // load courses when page loads
   useEffect(() => {
@@ -95,6 +106,7 @@ export default function DashboardPage() {
     if (!selectedCourse) return
     loadNotes(notesSearchQuery)
     loadNoteRequests(selectedCourse.id)
+    loadLectures(selectedCourse.id)
   }, [selectedCourse, loadNotes])
 
   useEffect(() => {
@@ -821,6 +833,12 @@ export default function DashboardPage() {
                           setIsNoteModalOpen(true)
                           // Load user's rating for this note
                           await loadUserRating(submission.id)
+                          // Track view
+                          try {
+                            await fetch(`/api/notes/${submission.id}/view`, { method: 'POST' })
+                          } catch (error) {
+                            // Silently fail - view tracking is not critical
+                          }
                         }}
                         className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
                       >
@@ -831,21 +849,26 @@ export default function DashboardPage() {
                           <span>&middot;</span>
                           <span>{submission.date}</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${i < Math.floor(submission.rating)
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : i < submission.rating
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${i < Math.floor(submission.rating)
                                     ? "fill-yellow-400 text-yellow-400"
-                                    : "text-neutral-300"
-                                  }`}
-                              />
-                            ))}
+                                    : i < submission.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-neutral-300"
+                                    }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
                           </div>
-                          <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
+                          {submission.view_count !== undefined && (
+                            <span className="text-xs text-muted-foreground">{submission.view_count} views</span>
+                          )}
                         </div>
                       </div>
                     ))

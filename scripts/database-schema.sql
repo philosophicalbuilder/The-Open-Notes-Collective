@@ -50,6 +50,19 @@ CREATE TABLE courses (
     UNIQUE KEY unique_course_section (code, section_id, semester_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Lectures table (lectures for each course section)
+CREATE TABLE lectures (
+    lecture_id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT NOT NULL,
+    lecture_date DATE NOT NULL,
+    topic VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
+    INDEX idx_course (course_id),
+    INDEX idx_date (lecture_date),
+    UNIQUE KEY unique_lecture (course_id, lecture_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Enrollments table (students enrolled in courses)
 CREATE TABLE enrollments (
     enrollment_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,6 +82,7 @@ CREATE TABLE notes (
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     lecture VARCHAR(100),
+    lecture_id INT NULL,
     link VARCHAR(500) NOT NULL,
     course_id INT NOT NULL,
     author_id INT NOT NULL,
@@ -76,8 +90,10 @@ CREATE TABLE notes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
     FOREIGN KEY (author_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (lecture_id) REFERENCES lectures(lecture_id) ON DELETE SET NULL,
     INDEX idx_course (course_id),
     INDEX idx_author (author_id),
+    INDEX idx_lecture (lecture_id),
     INDEX idx_created (created_at),
     FULLTEXT INDEX ft_search (title, description)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

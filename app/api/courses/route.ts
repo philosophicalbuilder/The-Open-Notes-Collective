@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
+import { logActivity } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
     try {
@@ -57,10 +58,10 @@ export async function GET(req: NextRequest) {
 
         // Deduplicate by course_id (in case of any edge cases)
         const uniqueCourses = (courses as any[]).reduce((acc: any[], course: any) => {
-          if (!acc.find((c) => c.course_id === course.course_id)) {
-            acc.push(course)
-          }
-          return acc
+            if (!acc.find((c) => c.course_id === course.course_id)) {
+                acc.push(course)
+            }
+            return acc
         }, [])
 
         return NextResponse.json({ courses: uniqueCourses }, { status: 200 });
@@ -112,6 +113,9 @@ export async function POST(req: NextRequest) {
             [name, code, section_id, description, decoded.userId, finalSemesterId]
         );
 
+        // Log activity
+        await logActivity(decoded.userId, 'course_create', 'course', result.insertId, `Created course: ${name} (${code})`);
+
         return NextResponse.json(
             { message: 'Course created successfully', course_id: result.insertId },
             { status: 201 }
@@ -142,7 +146,7 @@ export async function DELETE(req: NextRequest) {
 
         // Verify the course belongs to this instructor
         const course: any = await query(
-            'SELECT instructor_id FROM courses WHERE course_id = ?',
+            'SELECT instructor_id, name, code FROM courses WHERE course_id = ?',
             [courseId]
         );
 
@@ -165,6 +169,9 @@ export async function DELETE(req: NextRequest) {
             'DELETE FROM courses WHERE course_id = ?',
             [courseId]
         );
+
+        // Log activity
+        await logActivity(decoded.userId, 'course_delete', 'course', parseInt(courseId), `Deleted course: ${course[0].name} (${course[0].code})`);
 
         return NextResponse.json(
             { message: 'Course deleted successfully' },

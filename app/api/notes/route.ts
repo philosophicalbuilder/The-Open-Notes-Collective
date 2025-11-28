@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
+import { logActivity } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,10 +24,12 @@ export async function GET(req: NextRequest) {
         u.first_name as author_first_name,
         u.last_name as author_last_name,
         COALESCE(AVG(r.rating), 0) as average_rating,
-        COUNT(DISTINCT r.rating_id) as rating_count
+        COUNT(DISTINCT r.rating_id) as rating_count,
+        COUNT(DISTINCT v.view_id) as view_count
       FROM notes n
       INNER JOIN users u ON n.author_id = u.user_id
       LEFT JOIN ratings r ON n.note_id = r.note_id
+      LEFT JOIN note_views v ON n.note_id = v.note_id
       WHERE 1=1
     `;
     const sqlParams = [];
@@ -44,11 +47,13 @@ export async function GET(req: NextRequest) {
 
     sql += ` GROUP BY n.note_id`;
 
-    const validSort = ['created_at', 'rating', 'title', 'average_rating'].includes(sortBy) ? sortBy : 'created_at';
+    const validSort = ['created_at', 'rating', 'title', 'average_rating', 'popularity', 'views'].includes(sortBy) ? sortBy : 'created_at';
     const validOrder = ['ASC', 'DESC'].includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
     if (validSort === 'rating' || validSort === 'average_rating') {
       sql += ` ORDER BY average_rating ${validOrder}, rating_count DESC`;
+    } else if (validSort === 'popularity' || validSort === 'views') {
+      sql += ` ORDER BY view_count ${validOrder}, average_rating DESC`;
     } else if (validSort === 'title') {
       sql += ` ORDER BY n.title ${validOrder}`;
     } else {
@@ -105,6 +110,9 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [title, description, lecture || null, finalLink, course_id, decoded.userId]
     );
+
+    // Log activity
+    await logActivity(decoded.userId, 'note_upload', 'note', result.insertId, `Uploaded note: ${title}`);
 
     return NextResponse.json(
       { message: 'Note submitted successfully', note_id: result.insertId },
@@ -168,6 +176,9 @@ export async function DELETE(req: NextRequest) {
       'DELETE FROM notes WHERE note_id = ?',
       [noteId]
     );
+
+    // Log activity
+    await logActivity(decoded.userId, 'note_delete', 'note', parseInt(noteId), 'Deleted note');
 
     return NextResponse.json(
       { message: 'Note deleted successfully' },

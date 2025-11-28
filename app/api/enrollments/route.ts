@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
-import { apiHandler, requireAuth, apiError, apiResponse } from '@/lib/api-helpers';
+import { apiHandler, requireAuth, apiError, apiResponse, logActivity } from '@/lib/api-helpers';
 
 // Handles course enrollment for students.
 // POST: Enrolls a student in a course (students only)
@@ -19,6 +19,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Step 3: Create enrollment record
   const result: any = await query('INSERT INTO enrollments (student_id, course_id) VALUES (?, ?)', [user.userId, course_id]);
+
+  // Log activity
+  await logActivity(user.userId, 'enrollment', 'course', course_id, `Enrolled in course: ${course[0].name}`);
+
   return apiResponse({ message: 'Enrolled successfully', enrollment_id: result.insertId }, 201);
 });
 
@@ -52,8 +56,17 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const courseId = req.nextUrl.searchParams.get('course_id');
   if (!courseId) return apiError('Course ID is required', 400);
 
+  // Get course name before deleting for logging
+  const course: any = await query('SELECT name FROM courses WHERE course_id = ?', [courseId]);
+
   // Delete enrollment (no need to check if exists - DELETE is idempotent)
   await query('DELETE FROM enrollments WHERE student_id = ? AND course_id = ?', [user.userId, courseId]);
+
+  // Log activity
+  if (course.length) {
+    await logActivity(user.userId, 'unenrollment', 'course', parseInt(courseId), `Unenrolled from course: ${course[0].name}`);
+  }
+
   return apiResponse({ message: 'Unenrolled successfully' });
 });
 
