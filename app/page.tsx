@@ -126,8 +126,8 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-md space-y-8 my-auto">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex justify-center mb-6">
@@ -174,7 +174,7 @@ export default function AuthPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pb-4">
           {/* Computing ID */}
           <div className="space-y-2">
             <Label htmlFor="computing_id">Computing ID *</Label>
@@ -184,19 +184,6 @@ export default function AuthPage() {
               placeholder="e.g., abc2def"
               value={formData.computing_id}
               onChange={(e) => setFormData({ ...formData, computing_id: e.target.value })}
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="your-email@virginia.edu"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
@@ -213,6 +200,21 @@ export default function AuthPage() {
               required
             />
           </div>
+
+          {/* Email - only for registration */}
+          {!isLogin && (
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your-email@virginia.edu"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+          )}
 
           {/* Registration-only fields */}
           {!isLogin && (

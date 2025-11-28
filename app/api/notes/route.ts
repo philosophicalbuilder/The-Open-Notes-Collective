@@ -4,11 +4,11 @@ import { verifyToken } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
-    const params = req.nextUrl.searchParams;
-    const courseId = params.get('course_id');
-    const search = params.get('search') || '';
-    const sortBy = params.get('sort') || 'created_at';
-    const sortOrder = params.get('order') || 'DESC';
+    const searchParams = req.nextUrl.searchParams;
+    const courseId = searchParams.get('course_id');
+    const search = searchParams.get('search') || '';
+    const sortBy = searchParams.get('sort') || 'created_at';
+    const sortOrder = searchParams.get('order') || 'DESC';
 
     let sql = `
       SELECT 
@@ -29,17 +29,17 @@ export async function GET(req: NextRequest) {
       LEFT JOIN ratings r ON n.note_id = r.note_id
       WHERE 1=1
     `;
-    const params = [];
+    const sqlParams = [];
 
     if (courseId) {
       sql += ` AND n.course_id = ?`;
-      params.push(courseId);
+      sqlParams.push(courseId);
     }
 
     if (search) {
       sql += ` AND (n.title LIKE ? OR n.description LIKE ?)`;
       const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm);
+      sqlParams.push(searchTerm, searchTerm);
     }
 
     sql += ` GROUP BY n.note_id`;
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       sql += ` ORDER BY n.created_at ${validOrder}`;
     }
 
-    const notes = await query(sql, params);
+    const notes = await query(sql, sqlParams);
 
     return NextResponse.json({ notes }, { status: 200 });
   } catch (error) {
@@ -109,6 +109,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { message: 'Note submitted successfully', note_id: result.insertId },
       { status: 201 }
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const token = req.cookies.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const decoded = verifyToken(token);
+    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+
+    const noteId = req.nextUrl.searchParams.get('note_id');
+    if (!noteId) {
+      return NextResponse.json(
+        { error: 'Note ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the note and verify the instructor owns the course
+    const note: any = await query(
+      `SELECT n.note_id, n.course_id, c.instructor_id 
+       FROM notes n
+       INNER JOIN courses c ON n.course_id = c.course_id
+       WHERE n.note_id = ?`,
+      [noteId]
+    );
+
+    if (!Array.isArray(note) || note.length === 0) {
+      return NextResponse.json(
+        { error: 'Note not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only instructors can delete notes, and only from their own courses
+    if (decoded.role !== 'instructor') {
+      return NextResponse.json(
+        { error: 'Forbidden - Instructor access required' },
+        { status: 403 }
+      );
+    }
+
+    if (note[0].instructor_id !== decoded.userId) {
+      return NextResponse.json(
+        { error: 'You can only delete notes from your own courses' },
+        { status: 403 }
+      );
+    }
+
+    // Delete note (ratings will be cascade deleted due to foreign key)
+    await query(
+      'DELETE FROM notes WHERE note_id = ?',
+      [noteId]
+    );
+
+    return NextResponse.json(
+      { message: 'Note deleted successfully' },
+      { status: 200 }
     );
   } catch (error) {
     console.error(error);

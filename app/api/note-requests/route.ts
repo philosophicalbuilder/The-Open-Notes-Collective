@@ -35,16 +35,21 @@ export async function GET(req: NextRequest) {
 
     const requests = await query(
       `SELECT 
-        request_id,
-        course_id,
-        student_id,
-        request_text,
-        status,
-        created_at,
-        updated_at
-      FROM note_requests
-      WHERE course_id = ?
-      ORDER BY created_at DESC`,
+        r.request_id,
+        r.course_id,
+        r.student_id,
+        r.parent_request_id,
+        r.request_text,
+        r.status,
+        r.created_at,
+        r.updated_at,
+        u.first_name,
+        u.last_name,
+        u.computing_id
+      FROM note_requests r
+      INNER JOIN users u ON r.student_id = u.user_id
+      WHERE r.course_id = ?
+      ORDER BY r.created_at ASC`,
       [courseId]
     );
 
@@ -65,13 +70,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Student access required' }, { status: 403 });
     }
 
-    const { course_id, request_text } = await req.json();
+    const { course_id, request_text, parent_request_id } = await req.json();
 
     if (!course_id || !request_text?.trim()) {
       return NextResponse.json(
         { error: 'Course ID and request text are required' },
         { status: 400 }
       );
+    }
+
+    // If this is a reply, verify the parent request exists and is in the same course
+    if (parent_request_id) {
+      const parentRequest: any = await query(
+        'SELECT course_id FROM note_requests WHERE request_id = ?',
+        [parent_request_id]
+      );
+
+      if (!Array.isArray(parentRequest) || parentRequest.length === 0) {
+        return NextResponse.json(
+          { error: 'Parent request not found' },
+          { status: 404 }
+        );
+      }
+
+      if (parentRequest[0].course_id !== parseInt(course_id)) {
+        return NextResponse.json(
+          { error: 'Parent request must be in the same course' },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify student is enrolled
@@ -87,11 +114,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create note request
+    // Create note request (or reply)
     const result: any = await query(
-      `INSERT INTO note_requests (course_id, student_id, request_text, status)
-       VALUES (?, ?, ?, 'pending')`,
-      [course_id, decoded.userId, request_text.trim()]
+      `INSERT INTO note_requests (course_id, student_id, request_text, status, parent_request_id)
+       VALUES (?, ?, ?, 'pending', ?)`,
+      [course_id, decoded.userId, request_text.trim(), parent_request_id || null]
     );
 
     return NextResponse.json(

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const publicUrl = `/uploads/${fileName}`;
 
     return NextResponse.json(
-      { 
+      {
         message: 'File uploaded successfully',
         url: publicUrl,
         fileName: file.name,

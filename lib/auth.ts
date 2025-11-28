@@ -58,7 +58,7 @@ export async function getUserByComputingId(computingId: string): Promise<any> {
 // get user by id
 export async function getUserById(userId: number): Promise<any> {
   const results = await query<any[]>(
-    'SELECT user_id, computing_id, email, first_name, last_name, role, student_type FROM users WHERE user_id = ?',
+    'SELECT user_id, computing_id, email, first_name, middle_name, last_name, role, student_type, phone FROM users WHERE user_id = ?',
     [userId]
   );
   return results.length > 0 ? results[0] : null;
