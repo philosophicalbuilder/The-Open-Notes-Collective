@@ -1,24 +1,59 @@
-import { useState } from 'react';
+'use client'
+import { useState, useCallback } from 'react'
+import { formatDate } from '@/lib/utils'
 
-export function useNotes(courseId: number | null, searchQuery = '') {
-    const [notes, setNotes] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    const loadNotes = async () => {
-        if (!courseId) return;
-        setLoading(true);
-        try {
-            const url = `/api/notes?course_id=${courseId}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            setNotes(data.notes || []);
-        } catch (error) {
-            console.error('Error loading notes:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return { notes, loading, loadNotes };
+export type NoteSummary = {
+  id: number
+  title: string
+  description: string
+  lecture: string | null
+  link?: string
+  author: string
+  date: string
+  rating: number
 }
 
+export function useNotes(courseId: number | null) {
+  const [notes, setNotes] = useState<NoteSummary[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const loadNotes = useCallback(
+    async (searchQuery = '') => {
+      if (!courseId) {
+        setNotes([])
+        return
+      }
+
+      setLoading(true)
+      try {
+        let url = `/api/notes?course_id=${courseId}`
+        if (searchQuery.trim()) {
+          url += `&search=${encodeURIComponent(searchQuery.trim())}`
+        }
+
+        const res = await fetch(url)
+        if (res.ok) {
+          const data = await res.json()
+          const formatted = (data.notes || []).map((note: any) => ({
+            id: note.note_id,
+            title: note.title,
+            description: note.description,
+            lecture: note.lecture,
+            link: note.link,
+            author: `${note.author_first_name} ${note.author_last_name}`,
+            date: formatDate(note.created_at),
+            rating: parseFloat(note.average_rating) || 0,
+          }))
+          setNotes(formatted)
+        }
+      } catch (error) {
+        console.error('Error loading notes:', error)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [courseId]
+  )
+
+  return { notes, setNotes, loading, loadNotes }
+}

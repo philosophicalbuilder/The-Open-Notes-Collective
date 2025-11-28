@@ -5,7 +5,7 @@ import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Re
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { formatDate, format } from "@/lib/utils"
+import { format } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
@@ -18,20 +18,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useNotes, type NoteSummary } from "@/hooks/useNotes"
 
 // Available courses will be fetched from API
-
-type NoteSubmission = {
-  id: number
-  title: string
-  author: string
-  date: string
-  rating: number
-  description: string
-  link: string
-  lecture: string
-}
-
 
 type Course = {
   id: number
@@ -63,8 +52,8 @@ export default function DashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notesSearchQuery, setNotesSearchQuery] = useState("")
-  const [noteSubmissions, setNoteSubmissions] = useState<Record<number, NoteSubmission[]>>({})
-  const [selectedNote, setSelectedNote] = useState<NoteSubmission | null>(null)
+  const { notes, setNotes, loadNotes } = useNotes(selectedCourse?.id ?? null)
+  const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isSubmitNotesOpen, setIsSubmitNotesOpen] = useState(false)
@@ -103,22 +92,18 @@ export default function DashboardPage() {
 
   // load notes when you pick a course
   useEffect(() => {
-    if (selectedCourse) {
-      loadNotes(selectedCourse.id)
-      loadNoteRequests(selectedCourse.id)
-    }
-  }, [selectedCourse])
+    if (!selectedCourse) return
+    loadNotes(notesSearchQuery)
+    loadNoteRequests(selectedCourse.id)
+  }, [selectedCourse, loadNotes])
 
-  // search with delay so it doesn't spam the api
   useEffect(() => {
-    if (selectedCourse) {
-      const timeoutId = setTimeout(() => {
-        loadNotes(selectedCourse.id, notesSearchQuery)
-      }, 300)
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [notesSearchQuery, selectedCourse])
+    if (!selectedCourse) return
+    const timeoutId = setTimeout(() => {
+      loadNotes(notesSearchQuery)
+    }, 300)
+    return () => clearTimeout(timeoutId)
+  }, [notesSearchQuery, selectedCourse, loadNotes])
 
   const loadEnrolledCourses = async () => {
     try {
@@ -158,36 +143,6 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error loading available courses:', error)
-    }
-  }
-
-  const loadNotes = async (courseId: number, searchQuery?: string) => {
-    try {
-      let url = `/api/notes?course_id=${courseId}`
-      if (searchQuery && searchQuery.trim()) {
-        url += `&search=${encodeURIComponent(searchQuery.trim())}`
-      }
-
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        const formattedNotes = (data.notes || []).map((note: any) => ({
-          id: note.note_id,
-          title: note.title,
-          description: note.description,
-          lecture: note.lecture,
-          link: note.link,
-          author: `${note.author_first_name} ${note.author_last_name}`,
-          date: formatDate(note.created_at),
-          rating: parseFloat(note.average_rating) || 0,
-        }))
-        setNoteSubmissions((prev) => ({
-          ...prev,
-          [courseId]: formattedNotes,
-        }))
-      }
-    } catch (error) {
-      console.error('Error loading notes:', error)
     }
   }
 
@@ -459,7 +414,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Reload notes for this course
-        await loadNotes(selectedCourse.id)
+        await loadNotes(notesSearchQuery)
 
         // Reset form
         setNoteTitle("")
@@ -517,19 +472,11 @@ export default function DashboardPage() {
           rating: data.average_rating,
         })
         // Update the note in the list
-        if (selectedCourse) {
-          setNoteSubmissions((prev) => {
-            const courseNotes = prev[selectedCourse.id] || []
-            return {
-              ...prev,
-              [selectedCourse.id]: courseNotes.map((note) =>
-                note.id === noteId
-                  ? { ...note, rating: data.average_rating }
-                  : note
-              ),
-            }
-          })
-        }
+        setNotes((prev) =>
+          prev.map((note) =>
+            note.id === noteId ? { ...note, rating: data.average_rating } : note
+          )
+        )
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to submit rating')
@@ -553,7 +500,7 @@ export default function DashboardPage() {
   })
 
   const currentMessages = selectedCourse ? messages[selectedCourse.id] || [] : []
-  const currentSubmissions = selectedCourse ? noteSubmissions[selectedCourse.id] || [] : []
+  const currentSubmissions = selectedCourse ? notes : []
 
   // Notes are already filtered by the API, so we can use them directly
   // But we'll keep client-side filtering as a fallback for author search
