@@ -20,9 +20,9 @@ async function reduceNotes() {
   let connection: mysql.Connection | null = null;
 
   try {
-        console.log('Connecting to database...');
+    console.log('Connecting to database...');
     connection = await mysql.createConnection(dbConfig);
-        console.log('Connected successfully!\n');
+    console.log('Connected successfully!\n');
 
     // Get Database Systems course ID
     const [courses]: any = await connection.execute(
@@ -30,7 +30,7 @@ async function reduceNotes() {
     );
 
     if (courses.length === 0) {
-        console.log('Database Systems course not found!');
+      console.log('Database Systems course not found!');
       return;
     }
 
@@ -49,7 +49,7 @@ async function reduceNotes() {
     console.log(`Target: 11 notes\n`);
 
     if (allNotes.length <= 11) {
-        console.log('Already at or below target!');
+      console.log('Already at or below target!');
       return;
     }
 

@@ -8,9 +8,9 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'The Open Notes Collective',
+  description: 'The Open Notes Collective — a platform for sharing notes, collaborating, and learning together.',
+  generator: 'The Open Notes Collective',
   icons: {
     icon: [
       {
