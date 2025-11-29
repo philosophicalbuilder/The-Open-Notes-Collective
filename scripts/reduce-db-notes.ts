@@ -46,14 +46,14 @@ async function reduceNotes() {
     );
 
     console.log(`Current notes: ${allNotes.length}`);
-    console.log(`Target: 13 notes\n`);
+    console.log(`Target: 11 notes\n`);
 
-    if (allNotes.length <= 13) {
+    if (allNotes.length <= 11) {
         console.log('Already at or below target!');
       return;
     }
 
-    const toDelete = allNotes.length - 13;
+    const toDelete = allNotes.length - 11;
     console.log(` Need to delete ${toDelete} notes\n`);
 
     // Delete the most recent notes (keep the older ones)

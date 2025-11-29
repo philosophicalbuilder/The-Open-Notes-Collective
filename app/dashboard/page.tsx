@@ -106,7 +106,6 @@ export default function DashboardPage() {
     if (!selectedCourse) return
     loadNotes(notesSearchQuery)
     loadNoteRequests(selectedCourse.id)
-    loadLectures(selectedCourse.id)
   }, [selectedCourse, loadNotes])
 
   useEffect(() => {

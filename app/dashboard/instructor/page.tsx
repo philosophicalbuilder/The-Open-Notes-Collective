@@ -89,6 +89,7 @@ export default function InstructorDashboardPage() {
   const [isLoadingLectures, setIsLoadingLectures] = useState(false)
 
   useEffect(() => {
+    // Load all courses and the current user profile when the page loads
     loadCourses()
     loadUserProfile()
   }, [])
@@ -159,7 +160,13 @@ export default function InstructorDashboardPage() {
       const response = await fetch(`/api/notes?course_id=${courseId}`)
       if (response.ok) {
         const data = await response.json()
-        setNotes(data.notes || [])
+        const normalizedNotes = (data.notes || []).map((note: any) => ({
+          ...note,
+          // Make sure these are numbers so methods like toFixed work
+          average_rating: parseFloat(note.average_rating) || 0,
+          rating_count: Number(note.rating_count) || 0,
+        }))
+        setNotes(normalizedNotes)
       }
     } catch (error) {
       console.error('Error loading notes:', error)
@@ -644,7 +651,10 @@ export default function InstructorDashboardPage() {
             ) : notes.length === 0 ? (
               <p className="text-sm text-muted-foreground">No notes uploaded yet</p>
             ) : (
-              <div className="space-y-4">
+              <div
+                className={`space-y-4 ${notes.length > 5 ? "max-h-[1100px] overflow-y-auto pr-2" : ""
+                  }`}
+              >
                 {notes.map((note) => (
                   <div
                     key={note.note_id}

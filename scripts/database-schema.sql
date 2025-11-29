@@ -1,7 +1,4 @@
--- Open Notes Collective Database Schema
--- This schema includes 10+ normalized tables for the note-sharing platform
 
--- Users table (supports both students and instructors)
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     computing_id VARCHAR(50) UNIQUE NOT NULL,
@@ -14,11 +11,8 @@ CREATE TABLE users (
     student_type ENUM('sdac', 'non-sdac') DEFAULT NULL,
     phone VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_computing_id (computing_id),
-    INDEX idx_email (email),
-    INDEX idx_role (role)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
 -- Semesters table
 CREATE TABLE semesters (
@@ -29,7 +23,7 @@ CREATE TABLE semesters (
     is_current BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY unique_semester (name, start_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Courses table (published by instructors)
 CREATE TABLE courses (
@@ -42,13 +36,10 @@ CREATE TABLE courses (
     semester_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (instructor_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (semester_id) REFERENCES semesters(semester_id) ON DELETE RESTRICT,
-    INDEX idx_instructor (instructor_id),
-    INDEX idx_semester (semester_id),
-    INDEX idx_code (code),
+    FOREIGN KEY (instructor_id) REFERENCES users(user_id),
+    FOREIGN KEY (semester_id) REFERENCES semesters(semester_id),
     UNIQUE KEY unique_course_section (code, section_id, semester_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Lectures table (lectures for each course section)
 CREATE TABLE lectures (
@@ -57,11 +48,9 @@ CREATE TABLE lectures (
     lecture_date DATE NOT NULL,
     topic VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    INDEX idx_course (course_id),
-    INDEX idx_date (lecture_date),
+    FOREIGN KEY (course_id) REFERENCES courses(course_id),
     UNIQUE KEY unique_lecture (course_id, lecture_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Enrollments table (students enrolled in courses)
 CREATE TABLE enrollments (
@@ -69,12 +58,10 @@ CREATE TABLE enrollments (
     student_id INT NOT NULL,
     course_id INT NOT NULL,
     enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_enrollment (student_id, course_id),
-    INDEX idx_student (student_id),
-    INDEX idx_course (course_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (student_id) REFERENCES users(user_id),
+    FOREIGN KEY (course_id) REFERENCES courses(course_id),
+    UNIQUE KEY unique_enrollment (student_id, course_id)
+);
 
 -- Notes table (notes submitted by students)
 CREATE TABLE notes (
@@ -88,30 +75,23 @@ CREATE TABLE notes (
     author_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    FOREIGN KEY (author_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (lecture_id) REFERENCES lectures(lecture_id) ON DELETE SET NULL,
-    INDEX idx_course (course_id),
-    INDEX idx_author (author_id),
-    INDEX idx_lecture (lecture_id),
-    INDEX idx_created (created_at),
-    FULLTEXT INDEX ft_search (title, description)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (course_id) REFERENCES courses(course_id),
+    FOREIGN KEY (author_id) REFERENCES users(user_id),
+    FOREIGN KEY (lecture_id) REFERENCES lectures(lecture_id)
+);
 
 -- Ratings table (ratings for notes)
 CREATE TABLE ratings (
     rating_id INT AUTO_INCREMENT PRIMARY KEY,
     note_id INT NOT NULL,
     user_id INT NOT NULL,
-    rating DECIMAL(2,1) NOT NULL CHECK (rating >= 0 AND rating <= 5),
+    rating DECIMAL(2,1) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (note_id) REFERENCES notes(note_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_rating (note_id, user_id),
-    INDEX idx_note (note_id),
-    INDEX idx_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (note_id) REFERENCES notes(note_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    UNIQUE KEY unique_rating (note_id, user_id)
+);
 
 -- Live notes requests table
 CREATE TABLE note_requests (
@@ -122,12 +102,9 @@ CREATE TABLE note_requests (
     status ENUM('pending', 'fulfilled') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    INDEX idx_course (course_id),
-    INDEX idx_student (student_id),
-    INDEX idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (course_id) REFERENCES courses(course_id),
+    FOREIGN KEY (student_id) REFERENCES users(user_id)
+);
 
 -- Note views/analytics table
 CREATE TABLE note_views (
@@ -135,12 +112,9 @@ CREATE TABLE note_views (
     note_id INT NOT NULL,
     user_id INT NOT NULL,
     viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (note_id) REFERENCES notes(note_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    INDEX idx_note (note_id),
-    INDEX idx_user (user_id),
-    INDEX idx_viewed (viewed_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (note_id) REFERENCES notes(note_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
 
 -- User sessions table (for authentication)
 CREATE TABLE user_sessions (
@@ -148,10 +122,8 @@ CREATE TABLE user_sessions (
     user_id INT NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    INDEX idx_user (user_id),
-    INDEX idx_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
 
 -- Course materials table (optional - for instructors to share materials)
 CREATE TABLE course_materials (
@@ -162,9 +134,8 @@ CREATE TABLE course_materials (
     link VARCHAR(500) NOT NULL,
     material_type ENUM('syllabus', 'assignment', 'resource', 'other') DEFAULT 'other',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    INDEX idx_course (course_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (course_id) REFERENCES courses(course_id)
+);
 
 -- Activity log table (for audit trail)
 CREATE TABLE activity_logs (
@@ -176,11 +147,8 @@ CREATE TABLE activity_logs (
     description TEXT,
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    INDEX idx_user (user_id),
-    INDEX idx_action (action_type),
-    INDEX idx_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
 
 -- Insert default semester
 INSERT INTO semesters (name, start_date, end_date, is_current) VALUES
