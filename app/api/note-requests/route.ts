@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       INNER JOIN users u ON r.student_id = u.user_id
       WHERE r.course_id = ?
     `;
-    const sqlParams = [courseId];
+    const sqlParams: (string | number)[] = [courseId];
 
     if (mine && userId) {
       sql += ` AND r.student_id = ?`;
