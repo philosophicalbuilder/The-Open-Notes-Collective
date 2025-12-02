@@ -1,11 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Fix workspace root detection issue
-    experimental: {
-        turbo: {
-            root: process.cwd(),
-        },
-    },
+    // Next.js 16.0.3 configuration
 }
 
 module.exports = nextConfig
