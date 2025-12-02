@@ -2,22 +2,10 @@
 
 import { useRouter } from "next/navigation"
 import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Reply, ChevronDown, ChevronUp, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, Textarea, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui"
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { format } from "@/lib/utils"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useNotes, type NoteSummary } from "@/hooks/useNotes"
 
 // Available courses will be fetched from API

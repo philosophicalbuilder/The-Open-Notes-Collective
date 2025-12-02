@@ -2,8 +2,7 @@
 
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button, Alert, AlertDescription, AlertTitle } from "@/components/ui"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 

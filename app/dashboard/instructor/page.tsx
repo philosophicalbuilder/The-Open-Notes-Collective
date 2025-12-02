@@ -2,21 +2,10 @@
 
 import { useRouter } from "next/navigation"
 import { User, LogOut, Plus, Search, BookOpen, Star, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Textarea } from "@/components/ui"
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { formatDate } from "@/lib/utils"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 
 type Course = {
   id: number

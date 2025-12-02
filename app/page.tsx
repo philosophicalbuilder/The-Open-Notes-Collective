@@ -2,10 +2,7 @@
 
 import { useState } from "react"
 import { BookOpen, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+import { Button, RadioGroup, RadioGroupItem, Label, Input } from "@/components/ui"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 
