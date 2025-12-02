@@ -106,6 +106,7 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         setUserProfile(data.user)
+        // The session API returns user_id from getUserById
         setUserId(data.user?.user_id || null)
       }
     } catch (error) {
@@ -1033,10 +1034,10 @@ export default function DashboardPage() {
                             <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
                           </div>
                         </div>
-                        {!isGuest && submission.author_id === userId && (
+                        {!isGuest && userId && Number(submission.author_id) === Number(userId) && (
                           <button
                             onClick={(e) => handleDeleteNote(submission.id, e)}
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
+                            className={`absolute top-2 right-2 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700 ${showOnlyMyNotes ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             title="Delete note"
                           >
                             <X className="h-4 w-4" />
@@ -1130,7 +1131,7 @@ export default function DashboardPage() {
                           <span className="text-xs text-muted-foreground">{message.author}</span>
                         )}
                       </div>
-                      {!isGuest && message.student_id === userId && (
+                      {!isGuest && userId && Number(message.student_id) === Number(userId) && (
                         <button
                           onClick={(e) => handleDeleteRequest(message.id, e)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
@@ -1209,7 +1210,7 @@ export default function DashboardPage() {
                                   </span>
                                 </div>
                                 <p className="text-sm text-foreground">{reply.text}</p>
-                                {!isGuest && reply.student_id === userId && (
+                                {!isGuest && userId && Number(reply.student_id) === Number(userId) && (
                                   <button
                                     onClick={(e) => handleDeleteRequest(reply.id, e)}
                                     className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
