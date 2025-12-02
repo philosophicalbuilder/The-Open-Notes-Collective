@@ -152,9 +152,9 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Get the note and verify the instructor owns the course
+    // Get the note and verify ownership
     const note: any = await query(
-      `SELECT n.note_id, n.course_id, c.instructor_id 
+      `SELECT n.note_id, n.course_id, n.author_id, c.instructor_id 
        FROM notes n
        INNER JOIN courses c ON n.course_id = c.course_id
        WHERE n.note_id = ?`,
@@ -168,19 +168,24 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Only instructors can delete notes, and only from their own courses
-    if (decoded.role !== 'instructor') {
-      return NextResponse.json(
-        { error: 'Forbidden - Instructor access required' },
-        { status: 403 }
-      );
-    }
+    // Allow deletion if:
+    // 1. User is the author of the note (student deleting their own note), OR
+    // 2. User is an instructor and owns the course
+    const isAuthor = note[0].author_id === decoded.userId;
+    const isInstructorOwner = decoded.role === 'instructor' && note[0].instructor_id === decoded.userId;
 
-    if (note[0].instructor_id !== decoded.userId) {
-      return NextResponse.json(
-        { error: 'You can only delete notes from your own courses' },
-        { status: 403 }
-      );
+    if (!isAuthor && !isInstructorOwner) {
+      if (decoded.role === 'instructor') {
+        return NextResponse.json(
+          { error: 'You can only delete notes from your own courses' },
+          { status: 403 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: 'You can only delete your own notes' },
+          { status: 403 }
+        );
+      }
     }
 
     // Delete note (ratings will be cascade deleted due to foreign key)

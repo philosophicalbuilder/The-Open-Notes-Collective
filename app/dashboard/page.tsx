@@ -36,6 +36,7 @@ type Message = {
   parent_id?: number | null
   author?: string
   computing_id?: string
+  student_id?: number
   replies?: Message[]
 }
 
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const [notesSortBy, setNotesSortBy] = useState("created_at")
   const [notesSortOrder, setNotesSortOrder] = useState<"ASC" | "DESC">("DESC")
   const [showOnlyMyNotes, setShowOnlyMyNotes] = useState(false)
+  const [showOnlyMyRequests, setShowOnlyMyRequests] = useState(false)
   const { notes, setNotes, loadNotes } = useNotes(selectedCourse?.id ?? null)
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
@@ -74,6 +76,11 @@ export default function DashboardPage() {
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [isGuest, setIsGuest] = useState(false)
+  const [noteToDelete, setNoteToDelete] = useState<number | null>(null)
+  const [isDeleteNoteModalOpen, setIsDeleteNoteModalOpen] = useState(false)
+  const [requestToDelete, setRequestToDelete] = useState<number | null>(null)
+  const [isDeleteRequestModalOpen, setIsDeleteRequestModalOpen] = useState(false)
+  const [userId, setUserId] = useState<number | null>(null)
 
   // Check for guest mode
   useEffect(() => {
@@ -99,6 +106,7 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         setUserProfile(data.user)
+        setUserId(data.user?.user_id || null)
       }
     } catch (error) {
       console.error('Error loading user profile:', error)
@@ -109,8 +117,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedCourse) return
     loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
-    loadNoteRequests(selectedCourse.id)
-  }, [selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
+    loadNoteRequests(selectedCourse.id, showOnlyMyRequests)
+  }, [selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes, showOnlyMyRequests])
 
   useEffect(() => {
     if (!selectedCourse) return
@@ -183,9 +191,13 @@ export default function DashboardPage() {
     }
   }
 
-  const loadNoteRequests = async (courseId: number) => {
+  const loadNoteRequests = async (courseId: number, mine: boolean = false) => {
     try {
-      const response = await fetch(`/api/note-requests?course_id=${courseId}`)
+      let url = `/api/note-requests?course_id=${courseId}`
+      if (mine) {
+        url += `&mine=true`
+      }
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         const allRequests = (data.requests || []).map((req: any) => ({
@@ -196,6 +208,7 @@ export default function DashboardPage() {
           parent_id: req.parent_request_id,
           author: `${req.first_name} ${req.last_name}`,
           computing_id: req.computing_id,
+          student_id: req.student_id,
           replies: [],
         }))
 
@@ -316,7 +329,7 @@ export default function DashboardPage() {
 
         if (response.ok) {
           // Reload note requests
-          await loadNoteRequests(selectedCourse.id)
+          await loadNoteRequests(selectedCourse.id, showOnlyMyRequests)
           setRequest("")
           setReplyText("")
           // Keep thread expanded after replying
@@ -352,7 +365,7 @@ export default function DashboardPage() {
 
         if (response.ok) {
           // Reload note requests
-          await loadNoteRequests(selectedCourse.id)
+          await loadNoteRequests(selectedCourse.id, showOnlyMyRequests)
           setReplyText("")
           setReplyingTo(null)
         } else {
@@ -383,13 +396,71 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Reload note requests
-        await loadNoteRequests(selectedCourse.id)
+        await loadNoteRequests(selectedCourse.id, showOnlyMyRequests)
       } else {
         alert('Failed to update request status')
       }
     } catch (error) {
       console.error('Error updating request status:', error)
       alert('Failed to update request status')
+    }
+  }
+
+  const handleDeleteNote = async (noteId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setNoteToDelete(noteId)
+    setIsDeleteNoteModalOpen(true)
+  }
+
+  const confirmDeleteNote = async () => {
+    if (!noteToDelete || !selectedCourse) return
+
+    try {
+      const response = await fetch(`/api/notes?note_id=${noteToDelete}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Reload notes
+        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+        setIsDeleteNoteModalOpen(false)
+        setNoteToDelete(null)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete note')
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error)
+      alert('Failed to delete note')
+    }
+  }
+
+  const handleDeleteRequest = async (requestId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRequestToDelete(requestId)
+    setIsDeleteRequestModalOpen(true)
+  }
+
+  const confirmDeleteRequest = async () => {
+    if (!requestToDelete || !selectedCourse) return
+
+    try {
+      const response = await fetch(`/api/note-requests?id=${requestToDelete}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Reload note requests
+        await loadNoteRequests(selectedCourse.id, showOnlyMyRequests)
+        setIsDeleteRequestModalOpen(false)
+        setRequestToDelete(null)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete request')
+      }
+    } catch (error) {
+      console.error('Error deleting request:', error)
+      alert('Failed to delete request')
     }
   }
 
@@ -927,37 +998,50 @@ export default function DashboardPage() {
                     filteredSubmissions.map((submission) => (
                       <div
                         key={submission.id}
-                        onClick={async () => {
-                          setSelectedNote(submission)
-                          setIsNoteModalOpen(true)
-                          // Load user's rating for this note
-                          await loadUserRating(submission.id)
-                        }}
-                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow relative group"
                       >
-                        <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
-                        <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                          <span>{submission.author}</span>
-                          <span>&middot;</span>
-                          <span>{submission.date}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${i < Math.floor(submission.rating)
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : i < submission.rating
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-neutral-300"
-                                  }`}
-                              />
-                            ))}
+                        <div
+                          onClick={async () => {
+                            setSelectedNote(submission)
+                            setIsNoteModalOpen(true)
+                            // Load user's rating for this note
+                            await loadUserRating(submission.id)
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
+                          <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                            <span>{submission.author}</span>
+                            <span>&middot;</span>
+                            <span>{submission.date}</span>
                           </div>
-                          <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
+                          <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${i < Math.floor(submission.rating)
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : i < submission.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-neutral-300"
+                                    }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
+                          </div>
                         </div>
+                        {!isGuest && submission.author_id === userId && (
+                          <button
+                            onClick={(e) => handleDeleteNote(submission.id, e)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
+                            title="Delete note"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     ))
                   ) : (
@@ -996,7 +1080,20 @@ export default function DashboardPage() {
       {selectedCourse && (
         <aside className="w-80 bg-white border-l border-neutral-200 flex flex-col">
           <div className="p-6 border-b border-neutral-200">
-            <h2 className="text-lg font-semibold text-foreground">Live Notes Request for {selectedCourse.name}</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-foreground">Live Notes Request for {selectedCourse.name}</h2>
+            </div>
+            {!isGuest && (
+              <Button
+                type="button"
+                variant={showOnlyMyRequests ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowOnlyMyRequests((prev) => !prev)}
+                className="w-full mt-2"
+              >
+                {showOnlyMyRequests ? "Showing my requests" : "Posted by me"}
+              </Button>
+            )}
           </div>
 
           <div className="flex-1 p-6 overflow-y-auto">
@@ -1005,7 +1102,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {currentMessages.map((message) => (
-                  <div key={message.id} className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
+                  <div key={message.id} className="bg-neutral-50 rounded-lg p-3 border border-neutral-200 relative group">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 flex-1">
                         {!isGuest && (
@@ -1033,6 +1130,15 @@ export default function DashboardPage() {
                           <span className="text-xs text-muted-foreground">{message.author}</span>
                         )}
                       </div>
+                      {!isGuest && message.student_id === userId && (
+                        <button
+                          onClick={(e) => handleDeleteRequest(message.id, e)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
+                          title="Delete request"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm text-foreground">{message.text}</p>
                     <div className="flex items-center justify-between mt-1">
@@ -1093,7 +1199,7 @@ export default function DashboardPage() {
                         {message.replies && message.replies.length > 0 && (
                           <>
                             {message.replies.map((reply) => (
-                              <div key={reply.id} className="bg-white rounded p-2 border border-neutral-200 ml-2">
+                              <div key={reply.id} className="bg-white rounded p-2 border border-neutral-200 ml-2 relative group">
                                 <div className="flex items-center gap-2 mb-1">
                                   {reply.author && (
                                     <span className="text-xs font-medium text-foreground">{reply.author}</span>
@@ -1103,6 +1209,15 @@ export default function DashboardPage() {
                                   </span>
                                 </div>
                                 <p className="text-sm text-foreground">{reply.text}</p>
+                                {!isGuest && reply.student_id === userId && (
+                                  <button
+                                    onClick={(e) => handleDeleteRequest(reply.id, e)}
+                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700"
+                                    title="Delete reply"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </>
@@ -1394,6 +1509,64 @@ export default function DashboardPage() {
               onClick={confirmRemoveCourse}
             >
               Remove
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Note Confirmation Modal */}
+      <Dialog open={isDeleteNoteModalOpen} onOpenChange={setIsDeleteNoteModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Note</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this note? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteNoteModalOpen(false)
+                setNoteToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteNote}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Request Confirmation Modal */}
+      <Dialog open={isDeleteRequestModalOpen} onOpenChange={setIsDeleteRequestModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this request? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteRequestModalOpen(false)
+                setRequestToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteRequest}
+            >
+              Delete
             </Button>
           </div>
         </DialogContent>
