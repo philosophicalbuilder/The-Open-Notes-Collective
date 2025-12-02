@@ -11,6 +11,19 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort') || 'created_at';
     const sortOrder = searchParams.get('order') || 'DESC';
+    const mine = searchParams.get('mine') === 'true';
+
+    // Get user ID if filtering by "mine"
+    let userId: number | null = null;
+    if (mine && !guest) {
+      const token = req.cookies.get('auth-token')?.value;
+      if (token) {
+        const decoded = verifyToken(token);
+        if (decoded) {
+          userId = decoded.userId;
+        }
+      }
+    }
 
     let sql = `
       SELECT 
