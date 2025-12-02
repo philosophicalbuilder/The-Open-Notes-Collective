@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Reply, ChevronDown, ChevronUp, X } from "lucide-react"
+import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Reply, ChevronDown, ChevronUp, X, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -61,6 +61,9 @@ export default function DashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notesSearchQuery, setNotesSearchQuery] = useState("")
+  const [notesSortBy, setNotesSortBy] = useState("created_at")
+  const [notesSortOrder, setNotesSortOrder] = useState<"ASC" | "DESC">("DESC")
+  const [showOnlyMyNotes, setShowOnlyMyNotes] = useState(false)
   const { notes, setNotes, loadNotes } = useNotes(selectedCourse?.id ?? null)
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
@@ -104,17 +107,17 @@ export default function DashboardPage() {
   // load notes when you pick a course
   useEffect(() => {
     if (!selectedCourse) return
-    loadNotes(notesSearchQuery)
+    loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
     loadNoteRequests(selectedCourse.id)
-  }, [selectedCourse, loadNotes])
+  }, [selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
 
   useEffect(() => {
     if (!selectedCourse) return
     const timeoutId = setTimeout(() => {
-      loadNotes(notesSearchQuery)
+      loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
     }, 300)
     return () => clearTimeout(timeoutId)
-  }, [notesSearchQuery, selectedCourse, loadNotes])
+  }, [notesSearchQuery, selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
 
   const loadEnrolledCourses = async () => {
     try {
@@ -275,6 +278,24 @@ export default function DashboardPage() {
     }
   }
 
+  const handleDeleteNote = async (noteId: number, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    try {
+      const response = await fetch(`/api/notes?note_id=${noteId}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete note')
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error)
+      alert('Failed to delete note')
+    }
+  }
+
   const handleSubmitRequest = async () => {
     if (request.trim() && selectedCourse) {
       try {
@@ -425,7 +446,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Reload notes for this course
-        await loadNotes(notesSearchQuery)
+        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
 
         // Reset form
         setNoteTitle("")
@@ -488,6 +509,10 @@ export default function DashboardPage() {
             note.id === noteId ? { ...note, rating: data.average_rating } : note
           )
         )
+        // Reload notes to re-sort if sorting by rating
+        if (notesSortBy === 'rating' || notesSortBy === 'average_rating') {
+          await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+        }
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to submit rating')
@@ -679,6 +704,30 @@ export default function DashboardPage() {
                     className="pl-9"
                   />
                 </div>
+                <Select value={notesSortBy} onValueChange={(value) => {
+                  setNotesSortBy(value)
+                  if (value === 'rating' || value === 'average_rating') {
+                    setNotesSortOrder('DESC') // Highest rated first
+                  } else if (value === 'created_at') {
+                    setNotesSortOrder('DESC') // Most recent first
+                  }
+                }}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="created_at">Recent</SelectItem>
+                    <SelectItem value="rating">Highest Rated</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant={showOnlyMyNotes ? "default" : "outline"}
+                  onClick={() => setShowOnlyMyNotes((prev) => !prev)}
+                  className="whitespace-nowrap"
+                >
+                  {showOnlyMyNotes ? "Showing my notes" : "Posted by me"}
+                </Button>
                 <Dialog open={isSubmitNotesOpen} onOpenChange={setIsSubmitNotesOpen}>
                   <DialogTrigger asChild>
                     <Button className="gap-2">
@@ -839,8 +888,18 @@ export default function DashboardPage() {
                             // Silently fail - view tracking is not critical
                           }
                         }}
-                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer relative"
                       >
+                        {userProfile?.user_id === submission.author_id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => handleDeleteNote(submission.id, e)}
+                            className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
                         <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">

@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort') || 'created_at';
     const sortOrder = searchParams.get('order') || 'DESC';
+    const mine = searchParams.get('mine') === 'true';
 
     let sql = `
       SELECT 
@@ -43,6 +44,19 @@ export async function GET(req: NextRequest) {
       sql += ` AND (n.title LIKE ? OR n.description LIKE ?)`;
       const searchTerm = `%${search}%`;
       sqlParams.push(searchTerm, searchTerm);
+    }
+
+    if (mine) {
+      const token = req.cookies.get('auth-token')?.value;
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const decoded = verifyToken(token);
+      if (!decoded?.userId) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      }
+      sql += ` AND n.author_id = ?`;
+      sqlParams.push(decoded.userId);
     }
 
     sql += ` GROUP BY n.note_id`;
@@ -140,17 +154,9 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Only instructors can delete notes
-    if (decoded.role !== 'instructor') {
-      return NextResponse.json(
-        { error: 'Forbidden - Instructor access required' },
-        { status: 403 }
-      );
-    }
-
-    // Make sure the note exists before deleting
+    // Make sure the note exists before deleting and check ownership
     const note: any = await query(
-      'SELECT note_id FROM notes WHERE note_id = ?',
+      'SELECT note_id, author_id FROM notes WHERE note_id = ?',
       [noteId]
     );
 
@@ -158,6 +164,14 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json(
         { error: 'Note not found' },
         { status: 404 }
+      );
+    }
+
+    // Only instructors or the note's author can delete
+    if (decoded.role !== 'instructor' && note[0].author_id !== decoded.userId) {
+      return NextResponse.json(
+        { error: 'Forbidden - You can only delete your own notes' },
+        { status: 403 }
       );
     }
 
