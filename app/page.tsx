@@ -385,6 +385,24 @@ export default function AuthPage() {
             {isLoading ? "Please wait..." : isLogin ? "Login" : "Create Account"}
           </Button>
         </form>
+
+        {/* Continue as Guest */}
+        <div className="pt-4 border-t border-neutral-200">
+          <Button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('guest_mode', 'true')
+              router.push('/dashboard')
+            }}
+            variant="outline"
+            className="w-full h-12 rounded-lg font-medium"
+          >
+            Continue as Guest
+          </Button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Browse notes and courses without signing in
+          </p>
+        </div>
       </div>
     </div>
   )

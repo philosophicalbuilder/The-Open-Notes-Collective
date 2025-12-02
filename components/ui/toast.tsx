@@ -1,9 +1,5 @@
 import * as React from 'react'
 
-// Minimal type definitions used by `hooks/use-toast.ts`.
-// The project currently only imports the types from this module,
-// so we don't need a full visual Toast implementation for the build to succeed.
-
 export type ToastActionElement = React.ReactElement
 
 export interface ToastProps {
@@ -14,6 +10,4 @@ export interface ToastProps {
   description?: React.ReactNode
   action?: ToastActionElement
 }
-
-
 

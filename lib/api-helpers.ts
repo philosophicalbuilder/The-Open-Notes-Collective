@@ -14,6 +14,13 @@ export function getAuthUser(req: NextRequest) {
     return verifyToken(token);
 }
 
+// Checks if the request is from a guest (no auth token)
+// Guests use readonly_user database connection
+export function isGuest(req: NextRequest): boolean {
+    const token = req.cookies.get('auth-token')?.value;
+    return !token || !verifyToken(token);
+}
+
 // Requires authentication and optionally checks for specific role.
 // Throws an error object that can be caught by apiHandler if auth fails.
 // Using throw here because it's cleaner than returning error responses manually.

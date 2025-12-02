@@ -30,7 +30,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Step 2: Check if user has already rated this note
   const existing: any = await query('SELECT rating_id FROM ratings WHERE note_id = ? AND user_id = ?', [note_id, user.userId]);
-  
+
   // Step 3: Update existing rating or insert new one
   if (existing.length) {
     // Update existing rating
@@ -43,7 +43,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Step 4: Recalculate average rating for the note
   // Using AVG() and COUNT() aggregate functions
   const avg: any = await query('SELECT AVG(rating) as average_rating, COUNT(*) as rating_count FROM ratings WHERE note_id = ?', [note_id]);
-  
+
   return apiResponse({
     message: 'Rating submitted successfully',
     average_rating: parseFloat(avg[0].average_rating) || 0, // Handle null case (no ratings yet)

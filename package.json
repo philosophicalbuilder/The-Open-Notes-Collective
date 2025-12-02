@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "start": "next start",
     "setup-db": "tsx scripts/setup-database.ts",
+    "setup-privileges": "tsx scripts/setup-privileges.ts",
     "seed": "tsx scripts/seed-database.ts"
   },
   "dependencies": {

@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
+import { isGuest } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get('auth-token')?.value;
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-
     const courseId = req.nextUrl.searchParams.get('course_id');
 
     if (!courseId) {
@@ -19,20 +14,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Verify user is enrolled in course (for students) or is instructor
-    if (decoded.role === 'student') {
+    // Allow guests to view note requests (read-only)
+    const token = req.cookies.get('auth-token')?.value;
+    const decoded = token ? verifyToken(token) : null;
+
+    const guest = isGuest(req);
+
+    // Only verify enrollment if user is authenticated and is a student
+    if (decoded && decoded.role === 'student') {
       const enrollment = await query(
         'SELECT * FROM enrollments WHERE student_id = ? AND course_id = ?',
-        [decoded.userId, courseId]
+        [decoded.userId, courseId],
+        false // Use app_user for authenticated users
       );
       if (!Array.isArray(enrollment) || enrollment.length === 0) {
-        return NextResponse.json(
-          { error: 'You must be enrolled in this course' },
-          { status: 403 }
-        );
+        // Still allow viewing requests even if not enrolled (for guests)
       }
     }
-
     const requests = await query(
       `SELECT 
         r.request_id,
@@ -50,7 +48,8 @@ export async function GET(req: NextRequest) {
       INNER JOIN users u ON r.student_id = u.user_id
       WHERE r.course_id = ?
       ORDER BY r.created_at ASC`,
-      [courseId]
+      [courseId],
+      guest
     );
 
     return NextResponse.json({ requests }, { status: 200 });

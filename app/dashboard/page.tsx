@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Reply, ChevronDown, ChevronUp, X, Trash2 } from "lucide-react"
+import { User, LogOut, Send, Plus, Search, Star, CheckCircle2, Clock, Upload, Reply, ChevronDown, ChevronUp, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -28,15 +28,6 @@ type Course = {
   code: string
 }
 
-type Lecture = {
-  lecture_id: number
-  course_id: number
-  lecture_date: string
-  topic: string
-  created_at: string
-  note_count: number
-}
-
 type Message = {
   id: number
   text: string
@@ -61,9 +52,6 @@ export default function DashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notesSearchQuery, setNotesSearchQuery] = useState("")
-  const [notesSortBy, setNotesSortBy] = useState("created_at")
-  const [notesSortOrder, setNotesSortOrder] = useState<"ASC" | "DESC">("DESC")
-  const [showOnlyMyNotes, setShowOnlyMyNotes] = useState(false)
   const { notes, setNotes, loadNotes } = useNotes(selectedCourse?.id ?? null)
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
@@ -82,17 +70,27 @@ export default function DashboardPage() {
   const [courseToRemove, setCourseToRemove] = useState<number | null>(null)
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [lectures, setLectures] = useState<Lecture[]>([])
-  const [isLoadingLectures, setIsLoadingLectures] = useState(false)
+  const [isGuest, setIsGuest] = useState(false)
+
+  // Check for guest mode
+  useEffect(() => {
+    const guestMode = localStorage.getItem('guest_mode') === 'true'
+    setIsGuest(guestMode)
+  }, [])
 
   // load courses when page loads
   useEffect(() => {
-    loadEnrolledCourses()
-    loadAvailableCourses()
-    loadUserProfile()
-  }, [])
+    if (isGuest) {
+      loadAvailableCourses()
+    } else {
+      loadEnrolledCourses()
+      loadAvailableCourses()
+      loadUserProfile()
+    }
+  }, [isGuest])
 
   const loadUserProfile = async () => {
+    if (isGuest) return
     try {
       const response = await fetch('/api/auth/session')
       if (response.ok) {
@@ -107,31 +105,53 @@ export default function DashboardPage() {
   // load notes when you pick a course
   useEffect(() => {
     if (!selectedCourse) return
-    loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+    loadNotes(notesSearchQuery)
     loadNoteRequests(selectedCourse.id)
-  }, [selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
+  }, [selectedCourse, loadNotes])
 
   useEffect(() => {
     if (!selectedCourse) return
     const timeoutId = setTimeout(() => {
-      loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+      loadNotes(notesSearchQuery)
     }, 300)
     return () => clearTimeout(timeoutId)
-  }, [notesSearchQuery, selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
+  }, [notesSearchQuery, selectedCourse, loadNotes])
 
   const loadEnrolledCourses = async () => {
     try {
-      const response = await fetch('/api/enrollments')
-      if (response.ok) {
-        const data = await response.json()
-        const enrolledCourses = data.enrollments.map((e: any) => ({
-          id: e.course_id,
-          name: e.course_name,
-          code: e.course_code,
-        }))
-        setCourses(enrolledCourses)
-        if (enrolledCourses.length > 0 && !selectedCourse) {
-          setSelectedCourse(enrolledCourses[0])
+      if (isGuest) {
+        // For guests, use all available courses
+        const response = await fetch('/api/courses')
+        if (response.ok) {
+          const data = await response.json()
+          const uniqueCourses = (data.courses || []).reduce((acc: any[], course: any) => {
+            if (!acc.find((c) => c.course_id === course.course_id)) {
+              acc.push({
+                id: course.course_id,
+                name: course.name,
+                code: course.code,
+              })
+            }
+            return acc
+          }, [])
+          setCourses(uniqueCourses)
+          if (uniqueCourses.length > 0 && !selectedCourse) {
+            setSelectedCourse(uniqueCourses[0])
+          }
+        }
+      } else {
+        const response = await fetch('/api/enrollments')
+        if (response.ok) {
+          const data = await response.json()
+          const enrolledCourses = data.enrollments.map((e: any) => ({
+            id: e.course_id,
+            name: e.course_name,
+            code: e.course_code,
+          }))
+          setCourses(enrolledCourses)
+          if (enrolledCourses.length > 0 && !selectedCourse) {
+            setSelectedCourse(enrolledCourses[0])
+          }
         }
       }
     } catch (error) {
@@ -275,24 +295,6 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error removing course:', error)
       alert('Failed to remove course')
-    }
-  }
-
-  const handleDeleteNote = async (noteId: number, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    try {
-      const response = await fetch(`/api/notes?note_id=${noteId}`, {
-        method: 'DELETE',
-      })
-      if (response.ok) {
-        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
-      } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to delete note')
-      }
-    } catch (error) {
-      console.error('Error deleting note:', error)
-      alert('Failed to delete note')
     }
   }
 
@@ -446,7 +448,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Reload notes for this course
-        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
+        await loadNotes(notesSearchQuery)
 
         // Reset form
         setNoteTitle("")
@@ -509,10 +511,6 @@ export default function DashboardPage() {
             note.id === noteId ? { ...note, rating: data.average_rating } : note
           )
         )
-        // Reload notes to re-sort if sorting by rating
-        if (notesSortBy === 'rating' || notesSortBy === 'average_rating') {
-          await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
-        }
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to submit rating')
@@ -571,61 +569,63 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <div className="px-3 py-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-foreground">My Courses</h2>
-                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                      <DialogHeader>
-                        <DialogTitle>Add Course</DialogTitle>
-                        <DialogDescription>
-                          Search and add courses to your list. Courses can only be added by instructors.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search courses..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9"
-                          />
+                  <h2 className="text-sm font-semibold text-foreground">{isGuest ? "All Courses" : "My Courses"}</h2>
+                  {!isGuest && (
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>Add Course</DialogTitle>
+                          <DialogDescription>
+                            Search and add courses to your list. Courses can only be added by instructors.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search courses..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="pl-9"
+                            />
+                          </div>
+                          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                            {filteredAvailableCourses.length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                {searchQuery ? 'No courses found' : 'No courses available'}
+                              </p>
+                            ) : (
+                              filteredAvailableCourses.map((course: any) => {
+                                const isAdded = courses.find((c) => c.id === course.course_id)
+                                return (
+                                  <button
+                                    key={course.course_id}
+                                    onClick={() => !isAdded && handleAddCourse(course)}
+                                    disabled={!!isAdded}
+                                    className={`w-full text-left p-3 rounded-lg border transition-colors ${isAdded
+                                      ? "border-neutral-200 bg-neutral-50 cursor-not-allowed opacity-60"
+                                      : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
+                                      }`}
+                                  >
+                                    <div className="font-medium text-sm">{course.name}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      [{course.code}] Section {course.section_id} - {course.semester_name || 'Fall 2025'}
+                                    </div>
+                                    {isAdded && <div className="text-xs text-muted-foreground mt-1">Already enrolled</div>}
+                                  </button>
+                                )
+                              })
+                            )}
+                          </div>
                         </div>
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                          {filteredAvailableCourses.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              {searchQuery ? 'No courses found' : 'No courses available'}
-                            </p>
-                          ) : (
-                            filteredAvailableCourses.map((course: any) => {
-                              const isAdded = courses.find((c) => c.id === course.course_id)
-                              return (
-                                <button
-                                  key={course.course_id}
-                                  onClick={() => !isAdded && handleAddCourse(course)}
-                                  disabled={!!isAdded}
-                                  className={`w-full text-left p-3 rounded-lg border transition-colors ${isAdded
-                                    ? "border-neutral-200 bg-neutral-50 cursor-not-allowed opacity-60"
-                                    : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
-                                    }`}
-                                >
-                                  <div className="font-medium text-sm">{course.name}</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    [{course.code}] Section {course.section_id} - {course.semester_name || 'Fall 2025'}
-                                  </div>
-                                  {isAdded && <div className="text-xs text-muted-foreground mt-1">Already enrolled</div>}
-                                </button>
-                              )
-                            })
-                          )}
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {courses.length === 0 ? (
@@ -646,13 +646,15 @@ export default function DashboardPage() {
                           <div className="font-medium">{course.name}</div>
                           <div className="text-xs opacity-70">[{course.code}]</div>
                         </button>
-                        <button
-                          onClick={(e) => handleRemoveCourse(course.id, e)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-200 rounded text-muted-foreground hover:text-foreground"
-                          title="Remove course"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        {!isGuest && (
+                          <button
+                            onClick={(e) => handleRemoveCourse(course.id, e)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-200 rounded text-muted-foreground hover:text-foreground"
+                            title="Remove course"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     ))
                   )}
@@ -663,22 +665,38 @@ export default function DashboardPage() {
         </div>
 
         <div className="p-4 border-t border-neutral-200 space-y-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-sm"
-            onClick={() => setIsProfileModalOpen(true)}
-          >
-            <User className="h-4 w-4" />
-            Profile
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-sm text-muted-foreground hover:text-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
+          {!isGuest && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-sm"
+              onClick={() => setIsProfileModalOpen(true)}
+            >
+              <User className="h-4 w-4" />
+              Profile
+            </Button>
+          )}
+          {isGuest ? (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                localStorage.removeItem('guest_mode')
+                router.push('/')
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign In
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          )}
         </div>
       </aside>
 
@@ -689,6 +707,31 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold text-foreground mb-1">Fall 2025</h1>
             <p className="text-sm text-muted-foreground">Current Semester</p>
           </div>
+
+          {/* Guest Mode Banner */}
+          {isGuest && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <User className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-900">You're browsing as a guest</p>
+                  <p className="text-xs text-blue-700">Sign in to submit notes, rate content, and enroll in courses</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => {
+                  localStorage.removeItem('guest_mode')
+                  router.push('/')
+                }}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Sign In
+              </Button>
+            </div>
+          )}
 
           {selectedCourse ? (
             <div className="space-y-6">
@@ -704,170 +747,148 @@ export default function DashboardPage() {
                     className="pl-9"
                   />
                 </div>
-                <Select value={notesSortBy} onValueChange={(value) => {
-                  setNotesSortBy(value)
-                  if (value === 'rating' || value === 'average_rating') {
-                    setNotesSortOrder('DESC') // Highest rated first
-                  } else if (value === 'created_at') {
-                    setNotesSortOrder('DESC') // Most recent first
-                  }
-                }}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="created_at">Recent</SelectItem>
-                    <SelectItem value="rating">Highest Rated</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant={showOnlyMyNotes ? "default" : "outline"}
-                  onClick={() => setShowOnlyMyNotes((prev) => !prev)}
-                  className="whitespace-nowrap"
-                >
-                  {showOnlyMyNotes ? "Showing my notes" : "Posted by me"}
-                </Button>
-                <Dialog open={isSubmitNotesOpen} onOpenChange={setIsSubmitNotesOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gap-2">
-                      <Upload className="h-4 w-4" />
-                      Submit Notes
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Submit Notes for {selectedCourse.name}</DialogTitle>
-                      <DialogDescription>Share your notes with classmates. All fields are required.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="note-title">Title</Label>
-                        <Input
-                          id="note-title"
-                          placeholder="e.g., SQL Joins and Aggregations"
-                          value={noteTitle}
-                          onChange={(e) => setNoteTitle(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="note-lecture">Lecture</Label>
-                        <Select value={noteLecture} onValueChange={setNoteLecture}>
-                          <SelectTrigger id="note-lecture">
-                            <SelectValue placeholder="Select lecture" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[...Array(15)].map((_, i) => (
-                              <SelectItem key={i + 1} value={`Lecture ${i + 1}`}>
-                                Lecture {i + 1}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="note-description">Description</Label>
-                        <Textarea
-                          id="note-description"
-                          placeholder="Describe what topics are covered in these notes..."
-                          value={noteDescription}
-                          onChange={(e) => setNoteDescription(e.target.value)}
-                          className="min-h-[100px] resize-none"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Upload Method</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant={uploadMethod === "link" ? "default" : "outline"}
-                            onClick={() => {
-                              setUploadMethod("link")
-                              setNoteFile(null)
-                            }}
-                            className="flex-1"
-                          >
-                            Link
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={uploadMethod === "file" ? "default" : "outline"}
-                            onClick={() => {
-                              setUploadMethod("file")
-                              setNoteLink("")
-                            }}
-                            className="flex-1"
-                          >
-                            Upload File
-                          </Button>
-                        </div>
-                      </div>
-
-                      {uploadMethod === "link" ? (
-                        <div className="space-y-2">
-                          <Label htmlFor="note-link">Link</Label>
-                          <Input
-                            id="note-link"
-                            type="url"
-                            placeholder="https://drive.google.com/file/..."
-                            value={noteLink}
-                            onChange={(e) => setNoteLink(e.target.value)}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Paste a link to your notes (Google Drive, Dropbox, OneDrive, etc.)
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Label htmlFor="note-file">File</Label>
-                          <Input
-                            id="note-file"
-                            type="file"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) {
-                                if (file.size > 50 * 1024 * 1024) {
-                                  alert('File size must be less than 50MB')
-                                  e.target.value = ''
-                                  return
-                                }
-                                setNoteFile(file)
-                              }
-                            }}
-                            className="cursor-pointer"
-                          />
-                          {noteFile && (
-                            <div className="text-sm text-muted-foreground p-2 bg-neutral-50 rounded border">
-                              Selected: {noteFile.name} ({(noteFile.size / 1024 / 1024).toFixed(2)} MB)
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            Upload PDF, Word, PowerPoint, Text, or Image files (max 50MB)
-                          </p>
-                        </div>
-                      )}
-
-                      <Button
-                        onClick={handleSubmitNote}
-                        disabled={
-                          isUploading ||
-                          !noteTitle.trim() ||
-                          !noteDescription.trim() ||
-                          !noteLecture ||
-                          (uploadMethod === "link" && !noteLink.trim()) ||
-                          (uploadMethod === "file" && !noteFile)
-                        }
-                        className="w-full"
-                      >
-                        {isUploading ? "Uploading..." : "Submit Notes"}
+                {!isGuest && (
+                  <Dialog open={isSubmitNotesOpen} onOpenChange={setIsSubmitNotesOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Upload className="h-4 w-4" />
+                        Submit Notes
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>Submit Notes for {selectedCourse.name}</DialogTitle>
+                        <DialogDescription>Share your notes with classmates. All fields are required.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="note-title">Title</Label>
+                          <Input
+                            id="note-title"
+                            placeholder="e.g., SQL Joins and Aggregations"
+                            value={noteTitle}
+                            onChange={(e) => setNoteTitle(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="note-lecture">Lecture</Label>
+                          <Select value={noteLecture} onValueChange={setNoteLecture}>
+                            <SelectTrigger id="note-lecture">
+                              <SelectValue placeholder="Select lecture" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[...Array(15)].map((_, i) => (
+                                <SelectItem key={i + 1} value={`Lecture ${i + 1}`}>
+                                  Lecture {i + 1}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="note-description">Description</Label>
+                          <Textarea
+                            id="note-description"
+                            placeholder="Describe what topics are covered in these notes..."
+                            value={noteDescription}
+                            onChange={(e) => setNoteDescription(e.target.value)}
+                            className="min-h-[100px] resize-none"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Upload Method</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={uploadMethod === "link" ? "default" : "outline"}
+                              onClick={() => {
+                                setUploadMethod("link")
+                                setNoteFile(null)
+                              }}
+                              className="flex-1"
+                            >
+                              Link
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={uploadMethod === "file" ? "default" : "outline"}
+                              onClick={() => {
+                                setUploadMethod("file")
+                                setNoteLink("")
+                              }}
+                              className="flex-1"
+                            >
+                              Upload File
+                            </Button>
+                          </div>
+                        </div>
+
+                        {uploadMethod === "link" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="note-link">Link</Label>
+                            <Input
+                              id="note-link"
+                              type="url"
+                              placeholder="https://drive.google.com/file/..."
+                              value={noteLink}
+                              onChange={(e) => setNoteLink(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Paste a link to your notes (Google Drive, Dropbox, OneDrive, etc.)
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="note-file">File</Label>
+                            <Input
+                              id="note-file"
+                              type="file"
+                              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  if (file.size > 50 * 1024 * 1024) {
+                                    alert('File size must be less than 50MB')
+                                    e.target.value = ''
+                                    return
+                                  }
+                                  setNoteFile(file)
+                                }
+                              }}
+                              className="cursor-pointer"
+                            />
+                            {noteFile && (
+                              <div className="text-sm text-muted-foreground p-2 bg-neutral-50 rounded border">
+                                Selected: {noteFile.name} ({(noteFile.size / 1024 / 1024).toFixed(2)} MB)
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Upload PDF, Word, PowerPoint, Text, or Image files (max 50MB)
+                            </p>
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={handleSubmitNote}
+                          disabled={
+                            isUploading ||
+                            !noteTitle.trim() ||
+                            !noteDescription.trim() ||
+                            !noteLecture ||
+                            (uploadMethod === "link" && !noteLink.trim()) ||
+                            (uploadMethod === "file" && !noteFile)
+                          }
+                          className="w-full"
+                        >
+                          {isUploading ? "Uploading..." : "Submit Notes"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
 
               {currentSubmissions.length > 0 ? (
@@ -881,25 +902,9 @@ export default function DashboardPage() {
                           setIsNoteModalOpen(true)
                           // Load user's rating for this note
                           await loadUserRating(submission.id)
-                          // Track view
-                          try {
-                            await fetch(`/api/notes/${submission.id}/view`, { method: 'POST' })
-                          } catch (error) {
-                            // Silently fail - view tracking is not critical
-                          }
                         }}
-                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer relative"
+                        className="bg-white border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
                       >
-                        {userProfile?.user_id === submission.author_id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => handleDeleteNote(submission.id, e)}
-                            className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
                         <h3 className="font-semibold text-foreground mb-2">{submission.title}</h3>
                         <div className="text-xs font-medium text-blue-600 mb-2">{submission.lecture}</div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
@@ -907,26 +912,21 @@ export default function DashboardPage() {
                           <span>&middot;</span>
                           <span>{submission.date}</span>
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
                           <div className="flex items-center gap-1">
-                            <div className="flex items-center gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-4 w-4 ${i < Math.floor(submission.rating)
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${i < Math.floor(submission.rating)
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : i < submission.rating
                                     ? "fill-yellow-400 text-yellow-400"
-                                    : i < submission.rating
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-neutral-300"
-                                    }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
+                                    : "text-neutral-300"
+                                  }`}
+                              />
+                            ))}
                           </div>
-                          {submission.view_count !== undefined && (
-                            <span className="text-xs text-muted-foreground">{submission.view_count} views</span>
-                          )}
+                          <span className="text-sm font-medium text-foreground ml-1">{submission.rating.toFixed(1)}</span>
                         </div>
                       </div>
                     ))
@@ -978,25 +978,27 @@ export default function DashboardPage() {
                   <div key={message.id} className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 flex-1">
-                        <button
-                          onClick={() => toggleRequestStatus(message.id)}
-                          className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded transition-colors ${message.status === "fulfilled"
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                            }`}
-                        >
-                          {message.status === "fulfilled" ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3" />
-                              Fulfilled
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="h-3 w-3" />
-                              Pending
-                            </>
-                          )}
-                        </button>
+                        {!isGuest && (
+                          <button
+                            onClick={() => toggleRequestStatus(message.id)}
+                            className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded transition-colors ${message.status === "fulfilled"
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                              }`}
+                          >
+                            {message.status === "fulfilled" ? (
+                              <>
+                                <CheckCircle2 className="h-3 w-3" />
+                                Fulfilled
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="h-3 w-3" />
+                                Pending
+                              </>
+                            )}
+                          </button>
+                        )}
                         {message.author && (
                           <span className="text-xs text-muted-foreground">{message.author}</span>
                         )}
@@ -1034,7 +1036,7 @@ export default function DashboardPage() {
                             )}
                           </button>
                         )}
-                        {replyingTo !== message.id && (
+                        {!isGuest && replyingTo !== message.id && (
                           <button
                             onClick={() => {
                               setReplyingTo(message.id)
@@ -1077,7 +1079,7 @@ export default function DashboardPage() {
                         )}
 
                         {/* Reply input - appears at the bottom of replies */}
-                        {replyingTo === message.id && (
+                        {!isGuest && replyingTo === message.id && (
                           <div className="bg-white rounded p-2 border border-neutral-200 ml-2">
                             <Textarea
                               placeholder="Type your reply..."
@@ -1130,7 +1132,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="p-4 border-t border-neutral-200">
-            {replyingTo === null ? (
+            {!isGuest && replyingTo === null ? (
               <div className="relative">
                 <Textarea
                   placeholder="Type your live notes request..."
@@ -1156,6 +1158,11 @@ export default function DashboardPage() {
             ) : (
               <div className="text-xs text-muted-foreground text-center py-2">
                 Replying to a message above. Click "Cancel" to start a new request.
+              </div>
+            )}
+            {isGuest && (
+              <div className="text-xs text-muted-foreground text-center py-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                Sign in to create note requests and reply to messages
               </div>
             )}
           </div>
@@ -1216,16 +1223,19 @@ export default function DashboardPage() {
                         <Star
                           key={i}
                           onClick={() => {
-                            if (!isSubmittingRating && selectedNote) {
+                            if (!isGuest && !isSubmittingRating && selectedNote) {
                               submitRating(selectedNote.id, starValue)
                             }
                           }}
-                          className={`h-5 w-5 cursor-pointer transition-colors ${isUserRating
-                            ? "fill-yellow-500 text-yellow-500"
-                            : isFilled
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-neutral-300"
-                            } ${isSubmittingRating ? "opacity-50 cursor-not-allowed" : "hover:text-yellow-400"}`}
+                          className={`h-5 w-5 transition-colors ${isGuest
+                            ? "text-yellow-400"
+                            : "cursor-pointer"
+                            } ${isUserRating
+                              ? "fill-yellow-500 text-yellow-500"
+                              : isFilled
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-neutral-300"
+                            } ${isSubmittingRating ? "opacity-50 cursor-not-allowed" : !isGuest ? "hover:text-yellow-400" : ""}`}
                         />
                       )
                     })}
@@ -1233,15 +1243,22 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-foreground">
                     {selectedNote.rating.toFixed(1)} / 5.0
                   </span>
-                  {userRating !== null && (
+                  {!isGuest && userRating !== null && (
                     <span className="text-xs text-muted-foreground">
                       (Your rating: {userRating}/5)
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Click a star to rate this note
-                </p>
+                {!isGuest && (
+                  <p className="text-xs text-muted-foreground">
+                    Click a star to rate this note
+                  </p>
+                )}
+                {isGuest && (
+                  <p className="text-xs text-muted-foreground">
+                    Sign in to rate this note
+                  </p>
+                )}
               </div>
             </div>
           )}

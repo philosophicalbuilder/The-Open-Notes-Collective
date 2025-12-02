@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
-import { logActivity } from '@/lib/api-helpers';
+import { isGuest } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
   try {
+    const guest = isGuest(req);
     const searchParams = req.nextUrl.searchParams;
     const courseId = searchParams.get('course_id');
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort') || 'created_at';
     const sortOrder = searchParams.get('order') || 'DESC';
-    const mine = searchParams.get('mine') === 'true';
 
     let sql = `
       SELECT 
@@ -25,12 +25,10 @@ export async function GET(req: NextRequest) {
         u.first_name as author_first_name,
         u.last_name as author_last_name,
         COALESCE(AVG(r.rating), 0) as average_rating,
-        COUNT(DISTINCT r.rating_id) as rating_count,
-        COUNT(DISTINCT v.view_id) as view_count
+        COUNT(DISTINCT r.rating_id) as rating_count
       FROM notes n
       INNER JOIN users u ON n.author_id = u.user_id
       LEFT JOIN ratings r ON n.note_id = r.note_id
-      LEFT JOIN note_views v ON n.note_id = v.note_id
       WHERE 1=1
     `;
     const sqlParams = [];
@@ -46,35 +44,20 @@ export async function GET(req: NextRequest) {
       sqlParams.push(searchTerm, searchTerm);
     }
 
-    if (mine) {
-      const token = req.cookies.get('auth-token')?.value;
-      if (!token) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      const decoded = verifyToken(token);
-      if (!decoded?.userId) {
-        return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-      }
-      sql += ` AND n.author_id = ?`;
-      sqlParams.push(decoded.userId);
-    }
-
     sql += ` GROUP BY n.note_id`;
 
-    const validSort = ['created_at', 'rating', 'title', 'average_rating', 'popularity', 'views'].includes(sortBy) ? sortBy : 'created_at';
+    const validSort = ['created_at', 'rating', 'title', 'average_rating'].includes(sortBy) ? sortBy : 'created_at';
     const validOrder = ['ASC', 'DESC'].includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
     if (validSort === 'rating' || validSort === 'average_rating') {
       sql += ` ORDER BY average_rating ${validOrder}, rating_count DESC`;
-    } else if (validSort === 'popularity' || validSort === 'views') {
-      sql += ` ORDER BY view_count ${validOrder}, average_rating DESC`;
     } else if (validSort === 'title') {
       sql += ` ORDER BY n.title ${validOrder}`;
     } else {
       sql += ` ORDER BY n.created_at ${validOrder}`;
     }
 
-    const notes = await query(sql, sqlParams);
+    const notes = await query(sql, sqlParams, guest);
 
     return NextResponse.json({ notes }, { status: 200 });
   } catch (error) {
@@ -125,9 +108,6 @@ export async function POST(req: NextRequest) {
       [title, description, lecture || null, finalLink, course_id, decoded.userId]
     );
 
-    // Log activity
-    await logActivity(decoded.userId, 'note_upload', 'note', result.insertId, `Uploaded note: ${title}`);
-
     return NextResponse.json(
       { message: 'Note submitted successfully', note_id: result.insertId },
       { status: 201 }
@@ -154,9 +134,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Make sure the note exists before deleting and check ownership
+    // Get the note and verify the instructor owns the course
     const note: any = await query(
-      'SELECT note_id, author_id FROM notes WHERE note_id = ?',
+      `SELECT n.note_id, n.course_id, c.instructor_id 
+       FROM notes n
+       INNER JOIN courses c ON n.course_id = c.course_id
+       WHERE n.note_id = ?`,
       [noteId]
     );
 
@@ -167,22 +150,26 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Only instructors or the note's author can delete
-    if (decoded.role !== 'instructor' && note[0].author_id !== decoded.userId) {
+    // Only instructors can delete notes, and only from their own courses
+    if (decoded.role !== 'instructor') {
       return NextResponse.json(
-        { error: 'Forbidden - You can only delete your own notes' },
+        { error: 'Forbidden - Instructor access required' },
         { status: 403 }
       );
     }
 
-    // Delete note
+    if (note[0].instructor_id !== decoded.userId) {
+      return NextResponse.json(
+        { error: 'You can only delete notes from your own courses' },
+        { status: 403 }
+      );
+    }
+
+    // Delete note (ratings will be cascade deleted due to foreign key)
     await query(
       'DELETE FROM notes WHERE note_id = ?',
       [noteId]
     );
-
-    // Log activity
-    await logActivity(decoded.userId, 'note_delete', 'note', parseInt(noteId), 'Deleted note');
 
     return NextResponse.json(
       { message: 'Note deleted successfully' },

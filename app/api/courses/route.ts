@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
-import { logActivity } from '@/lib/api-helpers';
+import { logActivity, isGuest } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
     try {
+        const guest = isGuest(req);
         const searchParams = req.nextUrl.searchParams;
         const search = searchParams.get('search') || '';
         const semesterId = searchParams.get('semester_id');
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 
         sql += ` GROUP BY c.course_id ORDER BY c.created_at DESC`;
 
-        const courses = await query(sql, sqlParams);
+        const courses = await query(sql, sqlParams, guest);
 
         // Deduplicate by course_id (in case of any edge cases)
         const uniqueCourses = (courses as any[]).reduce((acc: any[], course: any) => {
