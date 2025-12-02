@@ -52,6 +52,9 @@ export default function DashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notesSearchQuery, setNotesSearchQuery] = useState("")
+  const [notesSortBy, setNotesSortBy] = useState("created_at")
+  const [notesSortOrder, setNotesSortOrder] = useState<"ASC" | "DESC">("DESC")
+  const [showOnlyMyNotes, setShowOnlyMyNotes] = useState(false)
   const { notes, setNotes, loadNotes } = useNotes(selectedCourse?.id ?? null)
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
@@ -105,17 +108,17 @@ export default function DashboardPage() {
   // load notes when you pick a course
   useEffect(() => {
     if (!selectedCourse) return
-    loadNotes(notesSearchQuery)
+    loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
     loadNoteRequests(selectedCourse.id)
-  }, [selectedCourse, loadNotes])
+  }, [selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
 
   useEffect(() => {
     if (!selectedCourse) return
     const timeoutId = setTimeout(() => {
-      loadNotes(notesSearchQuery)
+      loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
     }, 300)
     return () => clearTimeout(timeoutId)
-  }, [notesSearchQuery, selectedCourse, loadNotes])
+  }, [notesSearchQuery, selectedCourse, loadNotes, notesSortBy, notesSortOrder, showOnlyMyNotes])
 
   const loadEnrolledCourses = async () => {
     try {
@@ -448,7 +451,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Reload notes for this course
-        await loadNotes(notesSearchQuery)
+        await loadNotes(notesSearchQuery, notesSortBy, notesSortOrder, showOnlyMyNotes)
 
         // Reset form
         setNoteTitle("")
@@ -737,7 +740,7 @@ export default function DashboardPage() {
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-foreground">Notes for {selectedCourse.name}</h2>
 
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -747,6 +750,33 @@ export default function DashboardPage() {
                     className="pl-9"
                   />
                 </div>
+                <Select
+                  value={notesSortBy}
+                  onValueChange={(value) => {
+                    setNotesSortBy(value)
+                    if (value === 'rating') {
+                      setNotesSortOrder('DESC')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="created_at">Recent</SelectItem>
+                    <SelectItem value="rating">Highest Rated</SelectItem>
+                  </SelectContent>
+                </Select>
+                {!isGuest && (
+                  <Button
+                    type="button"
+                    variant={showOnlyMyNotes ? "default" : "outline"}
+                    onClick={() => setShowOnlyMyNotes((prev) => !prev)}
+                    className="whitespace-nowrap"
+                  >
+                    {showOnlyMyNotes ? "Showing my notes" : "Posted by me"}
+                  </Button>
+                )}
                 {!isGuest && (
                   <Dialog open={isSubmitNotesOpen} onOpenChange={setIsSubmitNotesOpen}>
                     <DialogTrigger asChild>

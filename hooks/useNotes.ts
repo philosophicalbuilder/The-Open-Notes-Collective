@@ -9,8 +9,10 @@ export type NoteSummary = {
     lecture: string | null
     link?: string
     author: string
+    author_id: number
     date: string
     rating: number
+    view_count?: number
 }
 
 export function useNotes(courseId: number | null) {
@@ -18,7 +20,12 @@ export function useNotes(courseId: number | null) {
     const [loading, setLoading] = useState(false)
 
     const loadNotes = useCallback(
-        async (searchQuery = '') => {
+        async (
+            searchQuery = '',
+            sortBy = 'created_at',
+            sortOrder: 'ASC' | 'DESC' = 'DESC',
+            mine = false
+        ) => {
             if (!courseId) {
                 setNotes([])
                 return
@@ -29,6 +36,10 @@ export function useNotes(courseId: number | null) {
                 let url = `/api/notes?course_id=${courseId}`
                 if (searchQuery.trim()) {
                     url += `&search=${encodeURIComponent(searchQuery.trim())}`
+                }
+                url += `&sort=${sortBy}&order=${sortOrder}`
+                if (mine) {
+                    url += `&mine=true`
                 }
 
                 const res = await fetch(url)
@@ -41,8 +52,10 @@ export function useNotes(courseId: number | null) {
                         lecture: note.lecture,
                         link: note.link,
                         author: `${note.author_first_name} ${note.author_last_name}`,
+                        author_id: note.author_id,
                         date: formatDate(note.created_at),
                         rating: parseFloat(note.average_rating) || 0,
+                        view_count: parseInt(note.view_count) || 0,
                     }))
                     setNotes(formatted)
                 }

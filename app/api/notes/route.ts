@@ -38,6 +38,11 @@ export async function GET(req: NextRequest) {
       sqlParams.push(courseId);
     }
 
+    if (mine && userId) {
+      sql += ` AND n.author_id = ?`;
+      sqlParams.push(userId);
+    }
+
     if (search) {
       sql += ` AND (n.title LIKE ? OR n.description LIKE ?)`;
       const searchTerm = `%${search}%`;
